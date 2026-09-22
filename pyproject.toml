@@ -24,7 +24,12 @@ version = {file = ["VERSION"]}
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-src = ["src/converter", "src/runtime/api/python/arm_yolo26n", "benchmarks/reporting"]
+src = [
+  "src/converter",
+  "src/runtime/api/python/arm_yolo26n",
+  "benchmarks/reporting",
+  "internal/blackduck",
+]
 
 [tool.ruff.lint]
 select = [
@@ -58,6 +63,8 @@ files = [
   "src/runtime/api/python/arm_yolo26n",
   "benchmarks/reporting",
   "benchmarks/ultralytics/benchmark.py",
+  "internal/blackduck/api.py",
+  "internal/blackduck/reconcile.py",
 ]
 strict = true
 disallow_any_explicit = true
@@ -71,6 +78,8 @@ paths = [
   "src/runtime/api/python/arm_yolo26n",
   "benchmarks/reporting",
   "benchmarks/ultralytics/benchmark.py",
+  "internal/blackduck/api.py",
+  "internal/blackduck/reconcile.py",
 ]
 min_confidence = 90
 sort_by_size = true

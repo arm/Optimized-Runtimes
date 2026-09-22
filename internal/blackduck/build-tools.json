@@ -1,0 +1,44 @@
+[
+  {
+    "name": "CMake",
+    "version": "3.31.6",
+    "component_id": "11ad566d-e0a2-4e11-98a7-08ad33356f4e",
+    "component_version_id": "c75306c1-4c6e-49a0-8f15-d92379373d61"
+  },
+  {
+    "name": "GCC",
+    "version": "14.2.0",
+    "component_id": "fd437eae-4c98-4696-b89f-4aa4b8ec8dd6",
+    "component_version_id": "877679ef-9052-4692-836f-2b8e75c748a4"
+  },
+  {
+    "name": "GNU Binutils",
+    "version": "2.44",
+    "component_id": "15e33f36-dfc8-4f27-be94-010712628d29",
+    "component_version_id": "52bca875-eef7-4682-b8c5-12f79e10006b"
+  },
+  {
+    "name": "GNU C Library",
+    "version": "2.41",
+    "component_id": "5baf441a-8153-44f7-88d7-726c943b03d0",
+    "component_version_id": "e025df3a-bc48-40dc-8b00-5ba20785cde4"
+  },
+  {
+    "name": "GNU Make",
+    "version": "4.4.1",
+    "component_id": "48f843ff-58f6-4d5c-baa7-56a9e4454db6",
+    "component_version_id": "28c14b1f-0508-4af4-9864-a5cf25b70a19"
+  },
+  {
+    "name": "GNU Patch",
+    "version": "2.8",
+    "component_id": "59f021c3-84b1-4554-a249-36e3c1fdc9b5",
+    "component_version_id": "31f8ce91-e28f-4f07-8aa1-d41b8af6b747"
+  },
+  {
+    "name": "Python",
+    "version": "3.13.5",
+    "component_id": "87993177-f099-4a8c-b962-3958dc3e3a3a",
+    "component_version_id": "cce9834e-43b8-49c0-9cd9-162842d402f7"
+  }
+]

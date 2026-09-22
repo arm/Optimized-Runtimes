@@ -98,6 +98,7 @@ qualified Raspberry Pi 5 build environment for revision `be2bbfe1` contains:
 | GNU Make | 4.4.1 | `make` 4.4.1-2 | CMake build backend. |
 | GNU Patch | 2.8 | `patch` 2.8-2 | Applies the repository-owned dependency patches. |
 | GNU Binutils | 2.44 | `binutils` 2.44-3 | Supplies `readelf` and `nm` for native-library verification. |
+| GNU C Library | 2.41 | `libc6` 2.41-12+rpt1 | Provides the C library and Linux AArch64 ABI used by the native toolchain. |
 | Python | 3.13.5 | `python3.13` 3.13.5-2 | Runs the checkpoint exporter, which otherwise uses only the Python standard library. |
 
 Build tools are classified as development tools rather than shipped runtime
@@ -106,9 +107,13 @@ build dependencies merely because a developer environment installs them.
 
 Black Duck cannot infer system tools such as CMake or the compiler from the
 CMake-fetched source tree. They are therefore entered from this explicit,
-reviewed inventory. Each tool uses the `Dev. Tool / Excluded` usage and is
-excluded from the build version's Notices report. This retains its security and
-operational information without treating it as code distributed with Loom.
+reviewed inventory, which is represented by Black Duck component identities in
+`internal/blackduck/build-tools.json`. Each tool uses the
+`Dev. Tool / Excluded` usage and is excluded from the build version's Notices
+report. Pip and the hash-locked Python build requirement are discovered by the
+package scan and receive the same treatment. This retains security and
+operational information without treating build tools as code distributed with
+Loom.
 
 Runtime release attribution is generated from the runtime version, where these
 tools do not appear. Attribution inclusion is controlled separately from
@@ -196,35 +201,31 @@ return to a combined BOM.
 
 ## GitHub Actions automation
 
-The public-repository workflow is implemented in
-`.github/workflows/blackduck.yml`. It runs the four closure scans after every
-push to `main` and can also be started manually by a maintainer. The workflow
-does not run for pull requests, so code from an untrusted fork cannot receive
-Black Duck credentials.
+`.github/workflows/blackduck.yml` runs the four closure scans after every push
+to `main`. A maintainer can also dispatch it for `main`; an explicit job guard
+prevents a credentialed run against another ref. The jobs use the `blackduck`
+GitHub environment, which must restrict deployment branches to `main`.
 
-The workflow requires `BLACKDUCK_URL` as a repository or organization Actions
-variable and `BLACKDUCK_TOKEN` as a protected Actions secret. The optional
-`BLACKDUCK_PROJECT_NAME` variable overrides the existing `Loom` project name.
-Each scan uses the leading eight characters of the source revision, matching
-the established `<revision>-<closure>` version names and
-`loom-<closure>-<revision>` code-location names.
+Configure the environment with:
 
-Runtime sources are populated through the project-owned
-`make runtime-configure` target. The target places only the four fetched source
-trees under the scan directory; CMake's generated dependency build and
-subbuild directories remain outside it. Source upload is disabled, snippet
-matching is disabled, and license search is enabled. The three Python closures
-use isolated environments and staged manifests so the native package inspector
-sees only the intended requirements. The build scan discovers the Python
-build-system requirement; the reviewed system-tool inventory remains manually
-maintained in Black Duck as described above because package inspection cannot
-infer host tools.
+- `BLACKDUCK_TOKEN`, an environment secret authorized to update the existing
+  project;
+- `BLACKDUCK_URL`, a variable containing the Black Duck server URL;
+- `BLACKDUCK_PROJECT_ID`, a variable containing the stable project UUID; and
+- optionally `BLACKDUCK_PROJECT_NAME`, if the project is renamed from `Loom`.
 
-After the first successful run, a Black Duck reviewer must establish the
-runtime subproject relationship in the examples, build, and Ultralytics
-versions and apply the component usages and Notices exclusions described in
-this document. Each new revision requires those server-side BOM decisions to
-be reviewed before its results can support a release.
+Each scan uses the first eight characters of the merge revision in both the
+version and code-location names. The runtime scan configures CMake to fetch its
+four native dependencies, scans only their source directories, enables license
+search, and disables source upload and snippet matching. Each Python scan
+stages exactly one hash-locked requirements file, installs it into an isolated
+environment, and requires Black Duck's high-accuracy PIP native inspector.
+
+After all scans finish, `internal/blackduck/reconcile.py` establishes the three
+runtime subproject relationships, adds the reviewed system build tools,
+applies component usage and Notices settings, and verifies that the resulting
+BOMs still match their intended closures. It reports the known Torch and
+Torchvision mapping gap in the GitHub job summary.
 
 Two scanning paths will serve different purposes.
 
@@ -234,16 +235,20 @@ A full Black Duck scan runs automatically after changes are merged to `main`.
 It provides ongoing dependency and software-composition-analysis coverage and
 supplies the evidence used for release and SBOM work.
 
-Black Duck credentials will be stored as protected GitHub Actions secrets. A
-workflow triggered by code from an untrusted fork must never receive those
-credentials.
+The Black Duck token is stored in the branch-restricted `blackduck` GitHub
+environment. The workflow has no pull-request trigger, so code from an
+untrusted fork cannot receive the token.
 
 The full scan will preserve the dependency-closure scheme described in this
 document. Runtime, examples, build, and Ultralytics dependencies will remain
 separate Black Duck versions, with the runtime reused as a subproject by the
 other closures.
 
-### Pre-merge snippet scan for AI-generated code
+### Planned pre-merge snippet scan for AI-generated code
+
+The post-merge workflow does not implement snippet review. This remains a
+separate workflow because it has a different trigger, credential boundary, and
+review result.
 
 A contribution containing AI-generated code will require a separate Black Duck
 snippet scan before merge. A maintainer will explicitly trigger or approve the

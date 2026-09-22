@@ -15,8 +15,10 @@ concurrency:
 
 jobs:
   scan:
+    if: github.ref == 'refs/heads/main'
     name: Scan ${{ matrix.closure }} closure
     runs-on: ubuntu-24.04-arm
+    environment: blackduck
     container:
       image: debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
     strategy:
@@ -34,15 +36,36 @@ jobs:
           - closure: examples
             directory: build/blackduck/examples
             distribution: EXTERNAL
-            detect_args: --detect.tools=DETECTOR --detect.detector.search.depth=0
+            requirements: requirements.txt
+            venv: build/blackduck/examples-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
           - closure: build
             directory: build/blackduck/build
             distribution: INTERNAL
-            detect_args: --detect.tools=DETECTOR --detect.detector.search.depth=0
+            requirements: requirements-build.txt
+            venv: build/blackduck/build-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
           - closure: ultralytics
             directory: build/blackduck/ultralytics
             distribution: INTERNAL
-            detect_args: --detect.tools=DETECTOR --detect.detector.search.depth=3
+            requirements: benchmarks/ultralytics/requirements.txt
+            venv: build/blackduck/ultralytics-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
     env:
       PIP_CONFIG_FILE: /dev/null
       DETECT_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME || 'Loom' }}
@@ -66,7 +89,7 @@ jobs:
             unzip
           rm -rf /var/lib/apt/lists/*
 
-      - name: Check out the trusted main revision
+      - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -87,66 +110,47 @@ jobs:
           BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
         run: |
-          if [[ -z "$BLACKDUCK_URL" ]]; then
-            echo 'BLACKDUCK_URL must be configured as a repository or organization variable' >&2
+          test -n "$BLACKDUCK_URL" || {
+            echo 'BLACKDUCK_URL is not configured' >&2
             exit 1
-          fi
-          if [[ -z "$BLACKDUCK_TOKEN" ]]; then
-            echo 'BLACKDUCK_TOKEN must be configured as a protected Actions secret' >&2
+          }
+          test -n "$BLACKDUCK_TOKEN" || {
+            echo 'BLACKDUCK_TOKEN is not configured' >&2
+            exit 1
+          }
+
+      - name: Prepare runtime dependency sources
+        if: matrix.closure == 'runtime'
+        env:
+          SCAN_DIRECTORY: ${{ matrix.directory }}
+        run: |
+          cmake -S src/runtime -B build/blackduck/runtime \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          mapfile -t dependency_sources < <(
+            find "$SCAN_DIRECTORY" -mindepth 1 -maxdepth 1 -type d -print | sort
+          )
+          if [[ "${#dependency_sources[@]}" -ne 4 ]]; then
+            echo "expected four fetched runtime source trees, found ${#dependency_sources[@]}" >&2
             exit 1
           fi
 
-      - name: Prepare ${{ matrix.closure }} closure
+      - name: Prepare locked Python closure
+        if: matrix.closure != 'runtime'
         env:
-          CLOSURE: ${{ matrix.closure }}
+          REQUIREMENTS: ${{ matrix.requirements }}
           SCAN_DIRECTORY: ${{ matrix.directory }}
+          VENV: ${{ matrix.venv }}
         run: |
-          case "$CLOSURE" in
-            runtime)
-              make runtime-configure \
-                RUNTIME_BUILD="$GITHUB_WORKSPACE/build/blackduck/runtime"
-              mapfile -t dependency_sources < <(
-                find "$SCAN_DIRECTORY" -mindepth 1 -maxdepth 1 -type d -print | sort
-              )
-              if [[ "${#dependency_sources[@]}" -ne 4 ]]; then
-                echo "expected four fetched runtime source trees, found ${#dependency_sources[@]}" >&2
-                exit 1
-              fi
-              ;;
-            examples)
-              mkdir -p "$SCAN_DIRECTORY"
-              cp requirements.txt "$SCAN_DIRECTORY/requirements.txt"
-              python3 -m venv build/blackduck/examples-venv
-              build/blackduck/examples-venv/bin/python -m pip install \
-                --require-hashes \
-                --requirement requirements.txt
-              echo "$GITHUB_WORKSPACE/build/blackduck/examples-venv/bin" >> "$GITHUB_PATH"
-              ;;
-            build)
-              mkdir -p "$SCAN_DIRECTORY"
-              cp requirements-build.txt "$SCAN_DIRECTORY/requirements.txt"
-              python3 -m venv build/blackduck/build-venv
-              build/blackduck/build-venv/bin/python -m pip install \
-                --require-hashes \
-                --requirement "$SCAN_DIRECTORY/requirements.txt"
-              echo "$GITHUB_WORKSPACE/build/blackduck/build-venv/bin" >> "$GITHUB_PATH"
-              ;;
-            ultralytics)
-              mkdir -p "$SCAN_DIRECTORY/benchmarks/ultralytics"
-              cp requirements.txt "$SCAN_DIRECTORY/requirements.txt"
-              cp benchmarks/ultralytics/requirements.txt \
-                "$SCAN_DIRECTORY/benchmarks/ultralytics/requirements.txt"
-              python3 -m venv build/blackduck/ultralytics-venv
-              build/blackduck/ultralytics-venv/bin/python -m pip install \
-                --require-hashes \
-                --requirement benchmarks/ultralytics/requirements.txt
-              echo "$GITHUB_WORKSPACE/build/blackduck/ultralytics-venv/bin" >> "$GITHUB_PATH"
-              ;;
-            *)
-              echo "unsupported Black Duck closure: $CLOSURE" >&2
-              exit 1
-              ;;
-          esac
+          mkdir -p "$SCAN_DIRECTORY"
+          cp "$REQUIREMENTS" "$SCAN_DIRECTORY/requirements.txt"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --require-hashes \
+            --requirement "$SCAN_DIRECTORY/requirements.txt"
+          echo "DETECT_PYTHON_PATH=$GITHUB_WORKSPACE/$VENV/bin/python" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_PATH=$GITHUB_WORKSPACE/$VENV/bin/pip" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_REQUIREMENTS_PATH=$GITHUB_WORKSPACE/$SCAN_DIRECTORY/requirements.txt" \
+            >> "$GITHUB_ENV"
 
       - name: Scan ${{ matrix.closure }} closure
         uses: blackduck-inc/black-duck-security-scan@152247222aa9cd38124acd5c0cf60f4db71adc3f # v2.11.0
@@ -157,3 +161,35 @@ jobs:
           blackducksca_waitForScan: true
           project_directory: ${{ matrix.directory }}
           detect_args: ${{ matrix.detect_args }}
+
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    name: Reconcile closure BOMs
+    needs: scan
+    runs-on: ubuntu-24.04-arm
+    environment: blackduck
+    container:
+      image: debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - name: Install reconciliation prerequisites
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends ca-certificates git python3
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reconcile and verify Black Duck BOMs
+        env:
+          BLACKDUCK_PROJECT_ID: ${{ vars.BLACKDUCK_PROJECT_ID }}
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
+        run: |
+          test -n "$BLACKDUCK_PROJECT_ID" || {
+            echo 'BLACKDUCK_PROJECT_ID is not configured' >&2
+            exit 1
+          }
+          python3 -m internal.blackduck.reconcile --revision "${GITHUB_SHA:0:8}"
