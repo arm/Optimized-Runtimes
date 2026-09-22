@@ -78,12 +78,3 @@ jobs:
             PYTHON=build/ci/venv/bin/python \
             CHECKPOINT=build/ci/yolo26n.pt \
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
-      - name: Retain main build packages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: main-build-${{ github.sha }}
-          path: dist/packages/
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
