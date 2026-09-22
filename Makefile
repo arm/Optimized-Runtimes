@@ -75,6 +75,8 @@ help:
 	  '' \
 	  '  make runtime' \
 	  '      Configure, compile, test, and write the native runtime to dist/runtime/.' \
+	  '  make runtime-configure' \
+	  '      Configure the native build and fetch its pinned dependencies.' \
 	  '' \
 	  '  make runtime-package' \
 	  '      Produce CPack runtime and development archives under dist/packages/.' \
@@ -146,10 +148,12 @@ model-check: $(CHECKPOINT)
 	  --output "$(MODEL_VALIDATION)"
 
 # Native runtime
-.PHONY: runtime runtime-package
-runtime:
+.PHONY: runtime-configure runtime runtime-package
+runtime-configure:
 	cmake -S src/runtime -B "$(RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Release
+
+runtime: runtime-configure
 	cmake --build "$(RUNTIME_BUILD)" \
 	  --target arm_yolo26n yolo26n_runtime_api_test --parallel
 	ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure

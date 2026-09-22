@@ -215,11 +215,12 @@ Configure the environment with:
 - optionally `BLACKDUCK_PROJECT_NAME`, if the project is renamed from `Loom`.
 
 Each scan uses the first eight characters of the merge revision in both the
-version and code-location names. The runtime scan configures CMake to fetch its
-four native dependencies, scans only their source directories, enables license
-search, and disables source upload and snippet matching. Each Python scan
-stages exactly one hash-locked requirements file, installs it into an isolated
-environment, and requires Black Duck's high-accuracy PIP native inspector.
+version and code-location names. The runtime scan uses `make runtime-configure`
+with an isolated build directory, then scans only the four native dependency
+source directories fetched by CMake. It enables license search and disables
+source upload and snippet matching. Each Python scan stages exactly one
+hash-locked requirements file, installs it into an isolated environment, and
+requires Black Duck's high-accuracy PIP native inspector.
 
 After all scans finish, `internal/blackduck/reconcile.py` establishes the three
 runtime subproject relationships, adds the reviewed system build tools,

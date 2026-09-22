@@ -124,9 +124,8 @@ jobs:
         env:
           SCAN_DIRECTORY: ${{ matrix.directory }}
         run: |
-          cmake -S src/runtime -B build/blackduck/runtime \
-            -DBUILD_TESTING=OFF \
-            -DCMAKE_BUILD_TYPE=Release
+          make runtime-configure \
+            RUNTIME_BUILD="$GITHUB_WORKSPACE/build/blackduck/runtime"
           mapfile -t dependency_sources < <(
             find "$SCAN_DIRECTORY" -mindepth 1 -maxdepth 1 -type d -print | sort
           )
