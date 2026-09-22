@@ -209,13 +209,16 @@ Each scan uses the leading eight characters of the source revision, matching
 the established `<revision>-<closure>` version names and
 `loom-<closure>-<revision>` code-location names.
 
-Runtime sources are populated through the project-owned CMake configuration
-and scanned with signature license search, source upload disabled, and snippet
-matching disabled. The three Python closures use isolated environments and
-staged manifests so the native package inspector sees only the intended
-requirements. The build scan discovers the Python build-system requirement;
-the reviewed system-tool inventory remains manually maintained in Black Duck
-as described above because package inspection cannot infer host tools.
+Runtime sources are populated through the project-owned
+`make runtime-configure` target. The target places only the four fetched source
+trees under the scan directory; CMake's generated dependency build and
+subbuild directories remain outside it. Source upload is disabled, snippet
+matching is disabled, and license search is enabled. The three Python closures
+use isolated environments and staged manifests so the native package inspector
+sees only the intended requirements. The build scan discovers the Python
+build-system requirement; the reviewed system-tool inventory remains manually
+maintained in Black Duck as described above because package inspection cannot
+infer host tools.
 
 After the first successful run, a Black Duck reviewer must establish the
 runtime subproject relationship in the examples, build, and Ultralytics
