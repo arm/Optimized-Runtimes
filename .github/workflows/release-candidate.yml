@@ -1,0 +1,155 @@
+name: Release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from the selected main commit, without a v prefix
+        required: true
+        type: string
+      revision:
+        description: Full commit SHA already present on main
+        required: true
+        type: string
+      black_duck_reviewed:
+        description: Confirm that the successful Black Duck result and BOM were reviewed
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    name: Assemble draft release
+    runs-on: ubuntu-24.04-arm
+    environment: release-candidate
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REQUESTED_VERSION: ${{ inputs.version }}
+      REQUESTED_REVISION: ${{ inputs.revision }}
+    steps:
+      - name: Check out main history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify release selection
+        env:
+          BLACK_DUCK_REVIEWED: ${{ inputs.black_duck_reviewed }}
+        run: |
+          [[ "$REQUESTED_REVISION" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'revision must be a full lowercase commit SHA' >&2
+            exit 1
+          }
+          [[ "$REQUESTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'version must use major.minor.patch form' >&2
+            exit 1
+          }
+          git cat-file -e "$REQUESTED_REVISION^{commit}"
+          git merge-base --is-ancestor "$REQUESTED_REVISION" HEAD || {
+            echo 'revision is not present on main' >&2
+            exit 1
+          }
+          git checkout --detach "$REQUESTED_REVISION"
+          test "$(cat VERSION)" = "$REQUESTED_VERSION" || {
+            echo 'requested version does not match VERSION at the selected commit' >&2
+            exit 1
+          }
+          test "$BLACK_DUCK_REVIEWED" = true || {
+            echo 'Black Duck review must be confirmed' >&2
+            exit 1
+          }
+          if gh release view "v$REQUESTED_VERSION" >/dev/null 2>&1; then
+            echo "release v$REQUESTED_VERSION already exists" >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$REQUESTED_VERSION" \
+              >/dev/null 2>&1; then
+            echo "tag v$REQUESTED_VERSION already exists" >&2
+            exit 1
+          fi
+
+      - name: Find successful build and Black Duck runs
+        run: |
+          build="$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+            -f head_sha="$REQUESTED_REVISION" -f event=push -f status=success \
+            -f per_page=100 \
+            --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
+          read -r build_run_id build_run_url <<<"$build"
+          test -n "$build_run_id" && test "$build_run_id" != null || {
+            echo 'no successful main build exists for the selected commit' >&2
+            exit 1
+          }
+
+          black_duck="$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/blackduck.yml/runs" \
+            -f head_sha="$REQUESTED_REVISION" -f event=push -f status=success \
+            -f per_page=100 \
+            --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
+          read -r black_duck_run_id black_duck_run_url <<<"$black_duck"
+          test -n "$black_duck_run_id" && test "$black_duck_run_id" != null || {
+            echo 'no successful Black Duck run exists for the selected commit' >&2
+            exit 1
+          }
+
+          {
+            echo "BUILD_RUN_ID=$build_run_id"
+            echo "BUILD_RUN_URL=$build_run_url"
+            echo "BLACK_DUCK_RUN_URL=$black_duck_run_url"
+          } >> "$GITHUB_ENV"
+
+      - name: Download retained build packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: main-build-${{ inputs.revision }}
+          path: build/release/input
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.BUILD_RUN_ID }}
+
+      - name: Assemble candidate files
+        run: |
+          python3 -m internal.release.candidate \
+            --input-dir build/release/input \
+            --output-dir build/release/output \
+            --version "$REQUESTED_VERSION" \
+            --revision "$REQUESTED_REVISION" \
+            --build-run-url "$BUILD_RUN_URL" \
+            --black-duck-run-url "$BLACK_DUCK_RUN_URL" \
+            --actor "$GITHUB_ACTOR"
+
+      - name: Create draft release
+        run: |
+          cat > build/release/notes.md <<EOF
+          ## Raspberry Pi 5 release candidate
+
+          Qualification status: pending
+
+          Source commit: \`$REQUESTED_REVISION\`  
+          [Build and test run]($BUILD_RUN_URL)  
+          [Black Duck run]($BLACK_DUCK_RUN_URL)
+
+          Install the candidate in a clean qualification directory:
+
+          ~~~sh
+          tar --extract --gzip \
+            --file arm-yolo26n-$REQUESTED_VERSION-rpi5-trixie-arm64.tar.gz
+          python3 -m venv .venv
+          .venv/bin/python -m pip install \
+            python/arm_yolo26n-$REQUESTED_VERSION-py3-none-any.whl
+          ~~~
+
+          This draft must not be published until the exact attached files have
+          completed Raspberry Pi 5 qualification and human review.
+          EOF
+          gh release create "v$REQUESTED_VERSION" build/release/output/* \
+            --draft \
+            --target "$REQUESTED_REVISION" \
+            --title "Arm Runtime for YOLO26n $REQUESTED_VERSION" \
+            --notes-file build/release/notes.md

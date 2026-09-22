@@ -7,9 +7,9 @@ those exact files on a supported Raspberry Pi 5, and publish them without a
 second build. This preserves the clean CI build environment while making
 physical-device validation a release requirement.
 
-This workflow is recorded here for implementation when the project moves to
-its public repository. It does not add release credentials or publication
-automation to the current repository.
+Candidate construction is implemented by the manually dispatched
+`release-candidate.yml` workflow. Publication remains a separate human action
+after Raspberry Pi qualification.
 
 ## Published files
 
@@ -62,28 +62,34 @@ does not repeat an unchanged scan.
 ## Candidate construction
 
 A separate, manually triggered GitHub Actions workflow accepts a version and a
-commit already present on `main`. It uses the controlled hosted Arm Debian
-Trixie build environment and the existing package owners:
+full commit SHA already present on `main`. The ordinary `main` build remains
+the only build: it has already run the tests, built the Python wheel, and had
+CMake and CPack produce the runtime and development archives. Candidate
+construction:
 
-1. verify that the requested version agrees with the CMake and Python package
-   metadata;
-2. build the Python wheel;
-3. have CMake build and ABI-check the runtime, then have CPack produce the
-   runtime and development components;
-4. assemble the installed runtime component and unchanged Python wheel into
-   the platform-named prebuilt distribution;
-5. inspect the archives for their expected installed files;
-6. generate SHA-256 checksums and a candidate manifest containing the source
-   commit and every file identity; and
-7. create a draft GitHub release targeting that commit and upload the complete
-   candidate once.
+1. verifies the selected commit and version;
+2. requires a successful build and successful Black Duck run for that exact
+   commit, plus the maintainer's confirmation that the Black Duck result was
+   reviewed;
+3. downloads the retained `main-build-<commit>` artifact without rebuilding;
+4. verifies the CPack checksums, expected installed files, and wheel version;
+5. assembles the runtime component and unchanged wheel into the platform-named
+   prebuilt distribution;
+6. generates SHA-256 checksums and a manifest identifying the source commit,
+   workflow runs, build inputs, and candidate outputs; and
+7. creates one draft GitHub release targeting that commit.
 
-The workflow sequences existing CMake and Python packaging commands. It does
-not introduce another native or Python packager and does not alter the outputs
-produced by those owners. Its release assembly gives users one platform
-distribution instead of requiring them to identify and combine implementation
-components. Pull-request workflows continue to verify packaging but do not
-retain downloadable packages.
+Release assembly does not introduce another native or Python packager and does
+not alter the outputs produced by those owners. It combines their tested files
+into the single platform distribution users need. The workflow uses the
+`release-candidate` GitHub environment so repository administrators can add
+required reviewers before granting permission to create a draft release.
+
+To construct a candidate, open **Actions → Release candidate → Run workflow**,
+select `main`, enter the version and full commit SHA, and confirm Black Duck
+review only after inspecting that commit's successful scan. The workflow
+rejects commits outside `main`, mismatched versions, missing successful runs,
+existing release tags, and unexpected or damaged build packages.
 
 Successful builds triggered by a push to `main` retain the unassembled CPack
 archives, checksums, and Python wheel for 30 days under an artifact named
