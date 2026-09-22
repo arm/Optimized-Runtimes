@@ -85,6 +85,13 @@ distribution instead of requiring them to identify and combine implementation
 components. Pull-request workflows continue to verify packaging but do not
 retain downloadable packages.
 
+Successful builds triggered by a push to `main` retain the unassembled CPack
+archives, checksums, and Python wheel for 30 days under an artifact named
+`main-build-<commit>`. These files make an ordinary merged build available for
+testing and diagnosis. They are not release candidates: candidate construction
+still verifies the version, assembles the supported distribution, records its
+source commit and checksums, and creates the draft release used by qualification.
+
 ## Raspberry Pi qualification
 
 Qualification is performed by a human on a Raspberry Pi 5 matching
