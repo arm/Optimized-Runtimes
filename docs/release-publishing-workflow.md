@@ -61,10 +61,10 @@ does not repeat an unchanged scan.
 
 ## Candidate construction
 
-A separate, manually triggered GitHub Actions workflow accepts a version and a
-full commit SHA already present on `main`. The ordinary `main` build remains
-the only build: it has already run the tests, built the Python wheel, and had
-CMake and CPack produce the runtime and development archives. Candidate
+A separate, manually triggered GitHub Actions workflow operates on the current
+`main` commit and reads its version from `VERSION`. The ordinary `main` build
+remains the only build: it has already run the tests, built the Python wheel,
+and had CMake and CPack produce the runtime and development archives. Candidate
 construction:
 
 1. verifies the selected commit and version;
@@ -86,10 +86,19 @@ into the single platform distribution users need. The workflow uses the
 required reviewers before granting permission to create a draft release.
 
 To construct a candidate, open **Actions → Release candidate → Run workflow**,
-select `main`, enter the version and full commit SHA, and confirm Black Duck
-review only after inspecting that commit's successful scan. The workflow
-rejects commits outside `main`, mismatched versions, missing successful runs,
-existing release tags, and unexpected or damaged build packages.
+select `main`, and confirm Black Duck review only after inspecting that
+commit's successful scan. Candidate runs are serialized so two maintainers
+cannot race to create the same release. The workflow rejects malformed
+versions, missing successful runs, existing release tags, and unexpected or
+damaged build packages.
+
+This follows [`arm/topo`'s release workflow](https://github.com/arm/topo/blob/main/.github/workflows/release.yaml)
+in using a manual release from current `main`, serializing release runs, and
+handing artifacts to a later publishing stage by producer-run identity. Topo
+rebuilds with GoReleaser because it produces tagged binaries for several
+platforms and then delegates signing and Artifactory publication. This project
+instead promotes its already-tested, fixed-platform `main` packages and creates
+a draft because Raspberry Pi qualification must occur before publication.
 
 Successful builds triggered by a push to `main` retain the unassembled CPack
 archives, checksums, and Python wheel for 30 days under an artifact named
