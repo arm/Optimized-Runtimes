@@ -10,7 +10,7 @@ readme = "src/runtime/api/python/arm_yolo26n/README.md"
 requires-python = ">=3.13,<3.14"
 license = "Apache-2.0"
 dependencies = [
-  "numpy==2.2.4",
+  "numpy==2.5.3",
   "opencv-python-headless==5.0.0.93",
 ]
 
