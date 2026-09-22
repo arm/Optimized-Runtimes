@@ -1,0 +1,19 @@
+/* GNU ld export map. CMake passes this file to --version-script so the shared
+ * library exposes only the installed C ABI and keeps C++/dependency symbols
+ * private. CTest verifies the resulting dynamic symbol table. */
+{
+  global:
+    y26_native_create;
+    y26_native_preprocess_image_no_resize;
+    y26_native_execute;
+    y26_native_destroy;
+    y26_native_calls;
+    y26_native_graphs;
+    y26_native_resolution;
+    y26_native_class_count;
+    y26_native_input_bytes;
+    y26_native_output_bytes;
+    y26_native_arena_bytes;
+  local:
+    *;
+};

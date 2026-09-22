@@ -1,0 +1,13 @@
+diff --git a/sources/pthreadpool/src/threadpool-common.h b/sources/pthreadpool/src/threadpool-common.h
+index 1165f14..0421cad 100644
+--- a/sources/pthreadpool/src/threadpool-common.h
++++ b/sources/pthreadpool/src/threadpool-common.h
+@@ -50,7 +50,7 @@
+ #else
+ 
+ #define PTHREADPOOL_SPIN_YIELD_ITERATIONS 0
+-#define PTHREADPOOL_SPIN_PAUSE_ITERATIONS 1000
++#define PTHREADPOOL_SPIN_PAUSE_ITERATIONS 100000
+ #endif  // defined(__ANDROID__)
+ #define PTHREADPOOL_SPIN_WAIT_ITERATIONS \
+   (PTHREADPOOL_SPIN_PAUSE_ITERATIONS + PTHREADPOOL_SPIN_YIELD_ITERATIONS)

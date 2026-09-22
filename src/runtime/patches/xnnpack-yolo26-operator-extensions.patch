@@ -1,0 +1,507 @@
+diff --git a/sources/xnnpack/src/configs/unary-elementwise-config.c b/sources/xnnpack/src/configs/unary-elementwise-config.c
+index 6d2bec2..a663f3d 100644
+--- a/sources/xnnpack/src/configs/unary-elementwise-config.c
++++ b/sources/xnnpack/src/configs/unary-elementwise-config.c
+@@ -36,6 +36,7 @@ static struct xnn_unary_elementwise_config f16_rndu_config = {0};
+ static struct xnn_unary_elementwise_config f16_rndz_config = {0};
+ static struct xnn_unary_elementwise_config f16_rsqrt_config = {0};
+ static struct xnn_unary_elementwise_config f16_sigmoid_config = {0};
++static struct xnn_unary_elementwise_config f16_silu_config = {0};
+ static struct xnn_unary_elementwise_config f16_sine_config = {0};
+ static struct xnn_unary_elementwise_config f16_sqr_config = {0};
+ static struct xnn_unary_elementwise_config f16_sqrt_config = {0};
+@@ -56,6 +57,7 @@ static struct xnn_unary_elementwise_config f32_rndu_config = {0};
+ static struct xnn_unary_elementwise_config f32_rndz_config = {0};
+ static struct xnn_unary_elementwise_config f32_rsqrt_config[2] = {0};
+ static struct xnn_unary_elementwise_config f32_sigmoid_config = {0};
++static struct xnn_unary_elementwise_config f32_silu_config = {0};
+ static struct xnn_unary_elementwise_config f32_sine_config[2] = {0};
+ static struct xnn_unary_elementwise_config f32_sqr_config = {0};
+ static struct xnn_unary_elementwise_config f32_sqrt_config[2] = {0};
+@@ -89,6 +91,7 @@ XNN_INIT_ONCE_GUARD(f16_rndu);
+ XNN_INIT_ONCE_GUARD(f16_rndz);
+ XNN_INIT_ONCE_GUARD(f16_rsqrt);
+ XNN_INIT_ONCE_GUARD(f16_sigmoid);
++XNN_INIT_ONCE_GUARD(f16_silu);
+ XNN_INIT_ONCE_GUARD(f16_sine);
+ XNN_INIT_ONCE_GUARD(f16_sqr);
+ XNN_INIT_ONCE_GUARD(f16_sqrt);
+@@ -109,6 +112,7 @@ XNN_INIT_ONCE_GUARD(f32_rndu);
+ XNN_INIT_ONCE_GUARD(f32_rndz);
+ XNN_INIT_ONCE_GUARD(f32_rsqrt);
+ XNN_INIT_ONCE_GUARD(f32_sigmoid);
++XNN_INIT_ONCE_GUARD(f32_silu);
+ XNN_INIT_ONCE_GUARD(f32_sine);
+ XNN_INIT_ONCE_GUARD(f32_sqr);
+ XNN_INIT_ONCE_GUARD(f32_sqrt);
+@@ -512,6 +516,18 @@ static void init_f16_sigmoid_config(void) {
+   #endif
+ }
+ 
++static void init_f16_silu_config(void) {
++  #if XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64
++    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
++    assert(hardware_config != NULL);
++    if (hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith) {
++      f16_silu_config.ukernel = XNN_INIT_UNARY_UKERNEL(
++          xnn_f16_vsilu_ukernel__neonfp16arith_rr2_p2_nr1fma_u32);
++      f16_silu_config.element_tile = 32;
++    }
++  #endif
++}
++
+ static void init_f16_sine_config(void) {
+ #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || \
+     (XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64)
+@@ -1605,6 +1621,14 @@ static void init_f32_sigmoid_config(void) {
+   #endif
+ }
+ 
++static void init_f32_silu_config(void) {
++  #if XNN_ARCH_ARM64
++    f32_silu_config.ukernel = XNN_INIT_UNARY_UKERNEL(
++        xnn_f32_vsilu_ukernel__neonfma_rr1_lut64_p2_nr2recps_u16);
++    f32_silu_config.element_tile = 16;
++  #endif
++}
++
+ static void init_f32_sqr_config(void) {
+   #if XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -3033,6 +3057,15 @@ const struct xnn_unary_elementwise_config* xnn_init_f16_sigmoid_config() {
+   return &f16_sigmoid_config;
+ }
+ 
++const struct xnn_unary_elementwise_config* xnn_init_f16_silu_config() {
++  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
++  if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
++    return NULL;
++  }
++  XNN_INIT_ONCE(f16_silu);
++  return f16_silu_config.ukernel != NULL ? &f16_silu_config : NULL;
++}
++
+ const struct xnn_unary_elementwise_config* xnn_init_f16_sine_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+@@ -3217,6 +3250,15 @@ const struct xnn_unary_elementwise_config* xnn_init_f32_sigmoid_config() {
+   return &f32_sigmoid_config;
+ }
+ 
++const struct xnn_unary_elementwise_config* xnn_init_f32_silu_config() {
++  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
++  if (hardware_config == NULL) {
++    return NULL;
++  }
++  XNN_INIT_ONCE(f32_silu);
++  return f32_silu_config.ukernel != NULL ? &f32_silu_config : NULL;
++}
++
+ const struct xnn_unary_elementwise_config* xnn_init_f32_sine_config(uint32_t flags) {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+diff --git a/sources/xnnpack/src/operator-utils.c b/sources/xnnpack/src/operator-utils.c
+index dff789c..38c6b6f 100644
+--- a/sources/xnnpack/src/operator-utils.c
++++ b/sources/xnnpack/src/operator-utils.c
+@@ -236,6 +236,8 @@ const char* xnn_unary_operator_to_string(enum xnn_unary_operator op)
+       return "reciprocal_square_root";
+     case xnn_unary_sigmoid:
+       return "sigmoid";
++    case xnn_unary_silu:
++      return "silu";
+     case xnn_unary_square:
+       return "square";
+     case xnn_unary_square_root:
+@@ -428,6 +430,8 @@ const char* xnn_operator_type_to_string_v2(xnn_operator_t op) {
+           return "Reciprocal Square Root (NC)";
+         case xnn_unary_sigmoid:
+           return "Sigmoid (NC)";
++        case xnn_unary_silu:
++          return "SiLU (NC)";
+         case xnn_unary_square:
+           return "Square (NC)";
+         case xnn_unary_square_root:
+diff --git a/sources/xnnpack/src/operators/convolution-nhwc.c b/sources/xnnpack/src/operators/convolution-nhwc.c
+index 2058dee..3e69f7d 100644
+--- a/sources/xnnpack/src/operators/convolution-nhwc.c
++++ b/sources/xnnpack/src/operators/convolution-nhwc.c
+@@ -40,6 +40,76 @@
+ #include "src/xnnpack/params.h"
+ #include <pthreadpool.h>
+ 
++extern void xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64(
++    size_t, size_t, size_t, size_t, const xnn_float16**, const xnn_float16*,
++    xnn_float16*, size_t, size_t, size_t, const xnn_float16*,
++    const struct xnn_f16_minmax_params*);
++extern void
++xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75(
++    size_t, size_t, size_t, size_t, const xnn_float16**, const xnn_float16*,
++    xnn_float16*, size_t, size_t, size_t, const xnn_float16*,
++    const struct xnn_f16_minmax_params*);
++extern void
++xnn_yolo26_f16_igemm_silu_1x16__asm_aarch64_neonfp16arith_ld64(
++    size_t, size_t, size_t, size_t, const xnn_float16**, const xnn_float16*,
++    xnn_float16*, size_t, size_t, size_t, const xnn_float16*,
++    const struct xnn_f16_minmax_params*);
++extern void
++xnn_yolo26_f16_igemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75(
++    size_t, size_t, size_t, size_t, const xnn_float16**, const xnn_float16*,
++    xnn_float16*, size_t, size_t, size_t, const xnn_float16*,
++    const struct xnn_f16_minmax_params*);
++
++enum xnn_status xnn_enable_yolo26_f16_igemm_silu_final_store(
++    xnn_operator_t op) {
++  // This mutates XNNPACK's selected microkernel table after operator creation.
++  // It is safe only for the two fixed YOLO26n convolutions and the exact stock
++  // 1x16/6x16 FP16 kernels from which the fused entry points are derived.
++  // Check every invariant before changing either function pointer so an
++  // upstream dispatch change becomes an initialization error.
++  if (op == NULL || op->type != xnn_operator_type_convolution_nhwc_f16 ||
++      op->ukernel.type != xnn_microkernel_type_igemm ||
++      op->ukernel.igemm == NULL || op->convolution_op == NULL) {
++    xnn_log_error(
++        "YOLO26 IGEMM-SiLU final-store tag did not select static FP16 IGEMM");
++    return xnn_status_invalid_state;
++  }
++  const struct xnn_convolution_operator* conv = op->convolution_op;
++  const bool stem =
++      conv->kernel_height == 3 && conv->kernel_width == 3 &&
++      conv->stride_height == 2 && conv->stride_width == 2 &&
++      conv->dilation_height == 1 && conv->dilation_width == 1 &&
++      conv->groups == 1 && conv->group_input_channels == 3 &&
++      conv->group_output_channels == 16 && op->input_pixel_stride == 3 &&
++      op->output_pixel_stride == 16;
++  const bool downsample =
++      conv->kernel_height == 3 && conv->kernel_width == 3 &&
++      conv->stride_height == 2 && conv->stride_width == 2 &&
++      conv->dilation_height == 1 && conv->dilation_width == 1 &&
++      conv->groups == 1 && conv->group_input_channels == 16 &&
++      conv->group_output_channels == 32 && op->input_pixel_stride == 16 &&
++      op->output_pixel_stride == 32;
++  struct xnn_ukernel_igemm* igemm = op->ukernel.igemm;
++  if ((!stem && !downsample) || igemm->mr != 6 || igemm->nr != 16 ||
++      igemm->kr != 1 || igemm->sr != 1 ||
++      igemm->igemm_cases[0].function[XNN_UARCH_DEFAULT] !=
++          (xnn_igemm_ukernel_fn)
++              xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64 ||
++      igemm->igemm_cases[5].function[XNN_UARCH_DEFAULT] !=
++          (xnn_igemm_ukernel_fn)
++              xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75) {
++    xnn_log_error("YOLO26 IGEMM-SiLU final-store identity mismatch");
++    return xnn_status_invalid_state;
++  }
++  igemm->igemm_cases[0].function[XNN_UARCH_DEFAULT] =
++      (xnn_igemm_ukernel_fn)
++          xnn_yolo26_f16_igemm_silu_1x16__asm_aarch64_neonfp16arith_ld64;
++  igemm->igemm_cases[5].function[XNN_UARCH_DEFAULT] =
++      (xnn_igemm_ukernel_fn)
++          xnn_yolo26_f16_igemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75;
++  return xnn_status_success;
++}
++
+ // Helper state structure that holds:
+ // - the parameters that are passed to the top-level create function;
+ // - an internal state that may be used by the case specific initialization
+diff --git a/sources/xnnpack/src/operators/fully-connected-nc.c b/sources/xnnpack/src/operators/fully-connected-nc.c
+index 4da708d..21ff838 100644
+--- a/sources/xnnpack/src/operators/fully-connected-nc.c
++++ b/sources/xnnpack/src/operators/fully-connected-nc.c
+@@ -26,6 +26,7 @@
+ #include "src/xnnpack/compute.h"
+ #include "src/xnnpack/config-types.h"
+ #include "src/xnnpack/config.h"
++#include "src/xnnpack/gemm.h"
+ #include "src/xnnpack/internal.h"
+ #include "src/xnnpack/log.h"
+ #include "src/xnnpack/math.h"
+@@ -42,6 +43,48 @@
+ #include "src/xnnpack/params.h"
+ #include <pthreadpool.h>
+ 
++extern void
++xnn_yolo26_f16_gemm_silu_1x16__asm_aarch64_neonfp16arith_ld64(
++    size_t, size_t, size_t, const xnn_float16*, size_t, const xnn_float16*,
++    xnn_float16*, size_t, size_t, const struct xnn_f16_minmax_params*);
++extern void
++xnn_yolo26_f16_gemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75(
++    size_t, size_t, size_t, const xnn_float16*, size_t, const xnn_float16*,
++    xnn_float16*, size_t, size_t, const struct xnn_f16_minmax_params*);
++
++enum xnn_status xnn_enable_yolo26_f16_gemm_silu_final_store(
++    xnn_operator_t op) {
++  // The fused entry points share the stock kernel's packing and tiling
++  // contract. Verify that exact contract before replacing its 1-row and 6-row
++  // cases; a different dispatch selection must be reviewed, not accepted as a
++  // silent fallback that omits SiLU.
++  if (op == NULL || op->type != xnn_operator_type_fully_connected_nc_f16 ||
++      op->ukernel.type != xnn_microkernel_type_gemm ||
++      op->ukernel.gemm_ukernels == NULL) {
++    xnn_log_error(
++        "YOLO26 GEMM-SiLU final-store tag did not select static FP16 GEMM");
++    return xnn_status_invalid_state;
++  }
++  struct xnn_ukernel_gemm* gemm = &op->ukernel.gemm_ukernels->gemm;
++  if (gemm->mr != 6 || gemm->nr != 16 || gemm->kr != 1 || gemm->sr != 1 ||
++      gemm->gemm_cases[0].function[XNN_UARCH_DEFAULT] !=
++          (xnn_gemm_ukernel_fn)
++              xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64 ||
++      gemm->gemm_cases[5].function[XNN_UARCH_DEFAULT] !=
++          (xnn_gemm_ukernel_fn)
++              xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75) {
++    xnn_log_error("YOLO26 GEMM-SiLU final-store microkernel identity mismatch");
++    return xnn_status_invalid_state;
++  }
++  gemm->gemm_cases[0].function[XNN_UARCH_DEFAULT] =
++      (xnn_gemm_ukernel_fn)
++          xnn_yolo26_f16_gemm_silu_1x16__asm_aarch64_neonfp16arith_ld64;
++  gemm->gemm_cases[5].function[XNN_UARCH_DEFAULT] =
++      (xnn_gemm_ukernel_fn)
++          xnn_yolo26_f16_gemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75;
++  return xnn_status_success;
++}
++
+ static float clamp(const float value, const float minimum, const float maximum) {
+   const float a = minimum <= value ? value : minimum;
+   return maximum >= a ? a : maximum;
+diff --git a/sources/xnnpack/src/operators/unary-elementwise-nc.c b/sources/xnnpack/src/operators/unary-elementwise-nc.c
+index a368597..863c12a 100644
+--- a/sources/xnnpack/src/operators/unary-elementwise-nc.c
++++ b/sources/xnnpack/src/operators/unary-elementwise-nc.c
+@@ -174,6 +174,8 @@ static const struct xnn_unary_elementwise_config* get_config(
+         return xnn_init_f16_rsqrt_config();
+       case xnn_unary_sigmoid:
+         return xnn_init_f16_sigmoid_config();
++      case xnn_unary_silu:
++        return xnn_init_f16_silu_config();
+       case xnn_unary_sine:
+         return xnn_init_f16_sine_config();
+       case xnn_unary_square_root:
+@@ -211,6 +213,8 @@ static const struct xnn_unary_elementwise_config* get_config(
+         return xnn_init_f32_rsqrt_config(flags);
+       case xnn_unary_sigmoid:
+         return xnn_init_f32_sigmoid_config();
++      case xnn_unary_silu:
++        return xnn_init_f32_silu_config();
+       case xnn_unary_sine:
+         return xnn_init_f32_sine_config(flags);
+       case xnn_unary_square_root:
+diff --git a/sources/xnnpack/src/reference/unary-elementwise.cc b/sources/xnnpack/src/reference/unary-elementwise.cc
+index 1c50ab0..864a27c 100644
+--- a/sources/xnnpack/src/reference/unary-elementwise.cc
++++ b/sources/xnnpack/src/reference/unary-elementwise.cc
+@@ -543,6 +543,8 @@ const xnn_unary_elementwise_config* get_config(xnn_unary_operator op,
+       DISPATCH_OPERATOR_FOR_DATATYPE(datatype, NegateOp);
+     case xnn_unary_sigmoid:
+       DISPATCH_OPERATOR_FOR_REAL_DATATYPE(datatype, SigmoidOp);
++    case xnn_unary_silu:
++      return nullptr;
+     case xnn_unary_square:
+       DISPATCH_OPERATOR_FOR_DATATYPE(datatype, SquareOp);
+     case xnn_unary_square_root:
+diff --git a/sources/xnnpack/src/subgraph/concatenate.c b/sources/xnnpack/src/subgraph/concatenate.c
+index 5201998..17d44f6 100644
+--- a/sources/xnnpack/src/subgraph/concatenate.c
++++ b/sources/xnnpack/src/subgraph/concatenate.c
+@@ -20,6 +20,65 @@
+ #include "src/xnnpack/subgraph.h"
+ #include <pthreadpool.h>
+ 
++// Project-owned implementation for the explicitly tagged model.2 C2f
++// concatenate. It combines three 16-channel NHWC FP16 inputs into one
++// 48-channel output in a single row-parallel operator. Spatial dimensions are
++// deliberately dynamic, so every supported YOLO26n resolution uses this path.
++struct yolo26n_fused_concat_x16_context {
++  const uint16_t* input0;
++  const uint16_t* input1;
++  const uint16_t* input2;
++  uint16_t* output;
++};
++
++static bool yolo26n_fused_concat_contract_matches(
++  const struct xnn_operator_data* opdata,
++  const struct xnn_runtime_value* values,
++  size_t num_values,
++  int32_t axis)
++{
++  if (opdata->num_inputs != 3 || opdata->num_outputs != 1 || axis != 3) {
++    return false;
++  }
++  for (size_t i = 0; i < 3; i++) {
++    if (opdata->inputs[i] >= num_values) {
++      return false;
++    }
++    const struct xnn_runtime_value* input = &values[opdata->inputs[i]];
++    if (input->datatype != xnn_datatype_fp16 || input->shape.num_dims != 4 ||
++        input->shape.dim[0] != 1 || input->shape.dim[3] != 16) {
++      return false;
++    }
++    if (i != 0 &&
++        (input->shape.dim[1] != values[opdata->inputs[0]].shape.dim[1] ||
++         input->shape.dim[2] != values[opdata->inputs[0]].shape.dim[2])) {
++      return false;
++    }
++  }
++  if (opdata->outputs[0] >= num_values) {
++    return false;
++  }
++  const struct xnn_runtime_value* output = &values[opdata->outputs[0]];
++  return output->datatype == xnn_datatype_fp16 && output->shape.num_dims == 4 &&
++      output->shape.dim[0] == 1 &&
++      output->shape.dim[1] == values[opdata->inputs[0]].shape.dim[1] &&
++      output->shape.dim[2] == values[opdata->inputs[0]].shape.dim[2] &&
++      output->shape.dim[3] == 48;
++}
++
++static void yolo26n_compute_fused_concat_x16(
++  struct yolo26n_fused_concat_x16_context* context,
++  size_t row,
++  size_t rows)
++{
++  for (size_t i = row; i < row + rows; i++) {
++    uint16_t* output = context->output + i * 48;
++    memcpy(output, context->input0 + i * 16, 16 * sizeof(uint16_t));
++    memcpy(output + 16, context->input1 + i * 16, 16 * sizeof(uint16_t));
++    memcpy(output + 32, context->input2 + i * 16, 16 * sizeof(uint16_t));
++  }
++}
++
+ static enum xnn_status create_concatenate_operator_helper(
+   const struct xnn_node *node,
+   struct xnn_operator_data *opdata,
+@@ -52,6 +111,16 @@ static enum xnn_status create_concatenate_operator(
+   const uint32_t input1_id = opdata->inputs[0];
+   assert(input1_id < num_values);
+   const struct xnn_runtime_value *input1_value = &values[input1_id];
++  if ((node->flags & XNN_FLAG_YOLO26_FUSED_C2F_CONCATENATE) != 0) {
++    if (!yolo26n_fused_concat_contract_matches(opdata, values, num_values, axis)) {
++      xnn_log_error("YOLO26 fused C2f concatenate request does not match its FP16 contract");
++      return xnn_status_invalid_state;
++    }
++    struct xnn_node standard_node = *node;
++    standard_node.flags &= ~XNN_FLAG_YOLO26_FUSED_C2F_CONCATENATE;
++    return create_concatenate_operator_helper(
++      &standard_node, opdata, input1_value->datatype, 0);
++  }
+   for (size_t i = 0; i < num_inputs; ++i) {
+     status = create_concatenate_operator_helper(node, opdata, input1_value->datatype, i);
+     if (status != xnn_status_success) {
+@@ -159,11 +228,34 @@ static enum xnn_status reshape_concatenate_operator(
+   output_value->shape.dim[axis] = concatenated_elements;
+   size_t batch_size = xnn_shape_multiply_leading_dims(&output_value->shape, axis);
+   const size_t old_workspace_size = opdata->workspace_size;
+-  for (size_t i = 0; i < num_inputs; ++i) {
+-    status = reshape_concatenate_operator_helper(opdata, i, input_channels[i], input_channels[i], output_stride, batch_size, threadpool);
++  if ((opdata->flags & XNN_FLAG_YOLO26_FUSED_C2F_CONCATENATE) != 0) {
++    if (!yolo26n_fused_concat_contract_matches(opdata, values, num_values, axis)) {
++      xnn_log_error("YOLO26 fused C2f concatenate reshape does not match its FP16 contract");
++      return xnn_status_invalid_state;
++    }
++    status = xnn_reshape_copy_nc_x16(
++      opdata->operator_objects[0], batch_size, 16, 16, 48, threadpool);
+     if (status != xnn_status_success) {
+       return status;
+     }
++    _Static_assert(
++      sizeof(struct yolo26n_fused_concat_x16_context) <=
++          sizeof(opdata->operator_objects[0]->context),
++      "fused concatenate context exceeds operator context storage");
++    opdata->operator_objects[0]->compute[0].type =
++        xnn_parallelization_type_1d_tile_1d_dynamic;
++    opdata->operator_objects[0]->compute[0].task_1d_tile_1d_dynamic =
++        (pthreadpool_task_1d_tile_1d_dynamic_t) yolo26n_compute_fused_concat_x16;
++    opdata->operator_objects[0]->compute[0].context_offset = 0;
++    opdata->operator_objects[0]->compute[0].range[0] = batch_size;
++    opdata->operator_objects[0]->compute[0].tile[0] = 128;
++  } else {
++    for (size_t i = 0; i < num_inputs; ++i) {
++      status = reshape_concatenate_operator_helper(opdata, i, input_channels[i], input_channels[i], output_stride, batch_size, threadpool);
++      if (status != xnn_status_success) {
++        return status;
++      }
++    }
+   }
+   const size_t new_size = xnn_runtime_tensor_get_size(output_value);
+   if (new_size > output_value->size || opdata->workspace_size > old_workspace_size) {
+@@ -241,6 +333,22 @@ static enum xnn_status setup_concatenate_operator(
+   assert(output_data != NULL);
+ 
+   enum xnn_status status;
++  if ((opdata->flags & XNN_FLAG_YOLO26_FUSED_C2F_CONCATENATE) != 0) {
++    if (!yolo26n_fused_concat_contract_matches(opdata, values, num_values, opdata->axis)) {
++      xnn_log_error("YOLO26 fused C2f concatenate setup does not match its FP16 contract");
++      return xnn_status_invalid_state;
++    }
++    struct yolo26n_fused_concat_x16_context* context =
++        (struct yolo26n_fused_concat_x16_context*) &opdata->operator_objects[0]->context;
++    *context = (struct yolo26n_fused_concat_x16_context) {
++      .input0 = input_data[0],
++      .input1 = input_data[1],
++      .input2 = input_data[2],
++      .output = output_data,
++    };
++    opdata->operator_objects[0]->state = xnn_run_state_ready;
++    return xnn_status_success;
++  }
+   for (size_t i = 0; i < num_inputs; ++i) {
+     status = setup_concatenate_operator_helper(input_data[i], output_data, opdata, i, threadpool);
+     if (status != xnn_status_success) {
+diff --git a/sources/xnnpack/src/xnnpack/config.h b/sources/xnnpack/src/xnnpack/config.h
+index 8faa0c9..f4bc9b4 100644
+--- a/sources/xnnpack/src/xnnpack/config.h
++++ b/sources/xnnpack/src/xnnpack/config.h
+@@ -111,6 +111,8 @@ xnn_init_f16_rsqrt_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_sigmoid_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
++xnn_init_f16_silu_config();
++XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_sine_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_sqr_config();
+@@ -151,6 +153,8 @@ xnn_init_f32_rsqrt_config(uint32_t flags);
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_sigmoid_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
++xnn_init_f32_silu_config();
++XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_sine_config(uint32_t flags);
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_sqr_config();
+diff --git a/sources/xnnpack/src/xnnpack/operator.h b/sources/xnnpack/src/xnnpack/operator.h
+index d551ca8..9f19615 100644
+--- a/sources/xnnpack/src/xnnpack/operator.h
++++ b/sources/xnnpack/src/xnnpack/operator.h
+@@ -383,6 +383,12 @@ XNN_INTERNAL enum xnn_status xnn_run_operator_with_index(
+ XNN_INTERNAL enum xnn_operator_type xnn_reduce_operator_to_operator_type(
+     enum xnn_reduce_operator type);
+ 
++XNN_INTERNAL enum xnn_status xnn_enable_yolo26_f16_gemm_silu_final_store(
++    xnn_operator_t op);
++
++XNN_INTERNAL enum xnn_status xnn_enable_yolo26_f16_igemm_silu_final_store(
++    xnn_operator_t op);
++
+ #ifdef __cplusplus
+ }  // extern "C"
+ #endif
+diff --git a/sources/xnnpack/src/xnnpack/vunary.h b/sources/xnnpack/src/xnnpack/vunary.h
+index c1ff953..2a5f35d 100644
+--- a/sources/xnnpack/src/xnnpack/vunary.h
++++ b/sources/xnnpack/src/xnnpack/vunary.h
+@@ -59,6 +59,7 @@ extern "C" {
+ #include "src/f16-vrnd/f16-vrndz.inc"
+ #include "src/f16-vrsqrt/f16-vrsqrt.inc"
+ #include "src/f16-vsigmoid/f16-vsigmoid.inc"
++#include "src/f16-vsilu/f16-vsilu.inc"
+ #include "src/f16-vsin/f16-vsin.inc"
+ #include "src/f16-vsqr/f16-vsqr.inc"
+ #include "src/f16-vsqrt/f16-vsqrt.inc"
+@@ -82,6 +83,7 @@ extern "C" {
+ #include "src/f32-vrnd/f32-vrndz.inc"
+ #include "src/f32-vrsqrt/f32-vrsqrt.inc"
+ #include "src/f32-vsigmoid/f32-vsigmoid.inc"
++#include "src/f32-vsilu/f32-vsilu.inc"
+ #include "src/f32-vsin/f32-vsin.inc"
+ #include "src/f32-vsqr/f32-vsqr.inc"
+ #include "src/f32-vsqrt/f32-vsqrt.inc"

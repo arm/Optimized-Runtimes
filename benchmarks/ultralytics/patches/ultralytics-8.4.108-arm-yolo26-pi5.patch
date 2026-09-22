@@ -1,0 +1,36 @@
+--- a/ultralytics/nn/backends/__init__.py
++++ b/ultralytics/nn/backends/__init__.py
+@@ -9,3 +9,4 @@
++from .arm_yolo26n_pi5 import ArmYolo26nPi5Backend
+ from .ascend import AscendBackend
+ from .axelera import AxeleraBackend
+ from .base import BaseBackend
+@@ -28,4 +29,5 @@
+ __all__ = [
++    "ArmYolo26nPi5Backend",
+     "AscendBackend",
+     "AxeleraBackend",
+     "BaseBackend",
+--- a/ultralytics/nn/autobackend.py
++++ b/ultralytics/nn/autobackend.py
+@@ -5,4 +5,5 @@
+ from .backends import (
++    ArmYolo26nPi5Backend,
+     AscendBackend,
+     AxeleraBackend,
+     CoreMLBackend,
+@@ -145,4 +146,5 @@
+     _BACKEND_MAP = {
++        "arm_yolo26n_pi5": ArmYolo26nPi5Backend,
+         "pt": PyTorchBackend,
+         "torchscript": TorchScriptBackend,
+         "onnx": ONNXBackend,
+--- a/ultralytics/engine/exporter.py
++++ b/ultralytics/engine/exporter.py
+@@ -214,5 +214,6 @@
+             "isolated-rknn",
+         ],
++        ["Arm YOLO26n Pi 5", "arm_yolo26n_pi5", "arm_yolo26n_pi5_model", True, False, [], "base"],
+         ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"], "executorch"],
+         [
+             "Axelera AI",

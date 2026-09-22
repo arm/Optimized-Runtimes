@@ -1,0 +1,1490 @@
+diff --git a/sources/xnnpack/include/xnnpack.h b/sources/xnnpack/include/xnnpack.h
+index 1b5d0dd..0818889 100644
+--- a/sources/xnnpack/include/xnnpack.h
++++ b/sources/xnnpack/include/xnnpack.h
+@@ -604,19 +604,6 @@ enum xnn_status xnn_define_unary(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Convert Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Convert Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_convert(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a 2D Convolution Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -812,84 +799,6 @@ enum xnn_status xnn_define_depth_to_space(
+   uint32_t block_size,
+   uint32_t flags);
+ 
+-/// Define a 1D Global Average Pooling Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 2 or more dimensions
+-///                   defined in the @a subgraph. Averaging is performed across the second-innermost dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 2 or more
+-///                    dimensions defined in the @a subgraph.
+-/// @param flags - binary features of the 1D Global Average Pooling Node. The only currently supported value is
+-///                XNN_FLAG_KEEP_DIMS.
+-XNN_DEPRECATED enum xnn_status xnn_define_global_average_pooling_1d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 2D Global Average Pooling Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 3 or more dimensions
+-///                   defined in the @a subgraph. Averaging is performed across the second- and third-innermost
+-///                   dimensions.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 3 or more
+-///                    dimensions defined in the @a subgraph.
+-/// @param flags - binary features of the 2D Global Average Pooling Node. The only currently supported value is
+-///                XNN_FLAG_KEEP_DIMS.
+-XNN_DEPRECATED enum xnn_status xnn_define_global_average_pooling_2d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 1D Global Sum Pooling Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 2 or more dimensions
+-///                   defined in the @a subgraph. Averaging is performed across the second-innermost dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 2 or more
+-///                    dimensions defined in the @a subgraph.
+-/// @param flags - binary features of the 1D Global Sum Pooling Node. The only currently supported value is
+-///                XNN_FLAG_KEEP_DIMS.
+-XNN_DEPRECATED enum xnn_status xnn_define_global_sum_pooling_1d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 2D Global Sum Pooling Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 3 or more dimensions
+-///                   defined in the @a subgraph. Averaging is performed across the second- and third-innermost
+-///                   dimensions.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 3 or more
+-///                    dimensions defined in the @a subgraph.
+-/// @param flags - binary features of the 2D Global Sum Pooling Node. The only currently supported value is
+-///                XNN_FLAG_KEEP_DIMS.
+-XNN_DEPRECATED enum xnn_status xnn_define_global_sum_pooling_2d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a 2D Average Pooling Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1171,60 +1080,6 @@ enum xnn_status xnn_define_binary(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a 2-Input Add Node and add it to a Subgraph.
+-///
+-/// The 2-Input Add Node computes elementwise addition of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Add Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_add2(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 2-Input Multiply Node and add it to a Subgraph.
+-///
+-/// The 2-Input Multiply Node computes elementwise multiplication of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Multiply Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_multiply2(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ // Cap operations applied to logits (Q * K) of attention operator.
+ enum xnn_attention_logits_cap_type {
+   // No capping.
+@@ -1238,135 +1093,6 @@ struct xnn_attention_logits_cap_tanh_params {
+   float cap;
+ };
+ 
+-/// Define a Subtract Node and add it to a Subgraph.
+-///
+-/// The Subtract Node computes elementwise subtraction of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Subtract Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_subtract(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Divide Node and add it to a Subgraph.
+-///
+-/// The Divide Node computes elementwise division of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Divide Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_divide(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 2-Input Maximum Node and add it to a Subgraph.
+-///
+-/// The 2-Input Maximum Node computes elementwise maximum of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Maximum Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_maximum2(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a 2-Input Minimum Node and add it to a Subgraph.
+-///
+-/// The 2-Input Minimum Node computes elementwise minimum of two tensor inputs with numpy broadcasting rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Minimum Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_minimum2(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Squared Difference Node and add it to a Subgraph.
+-///
+-/// The Squared Difference Node computes elementwise squared difference of two tensor inputs with numpy broadcasting
+-/// rules.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the second
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be an M-dimensional tensor defined in
+-///                    the @a subgraph with each dimension either equal to the corresponding dimension of the first
+-///                    input, or equal to 1. In the latter case, the elements of the input tensor are broadcasted along
+-///                    that dimension.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
+-///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
+-///                    of the two inputs.
+-/// @param flags - binary features of the Squared Difference Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_squared_difference(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a Constant Pad Node with static padding specification and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1466,26 +1192,6 @@ enum xnn_status xnn_define_split_dim(  //
+     uint32_t output_id,                        //
+     uint32_t flags);
+ 
+-/// Define a Mean Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param num_reduction_axes - number of axes along which mean is computed.
+-/// @param reduction_axes - axes along which mean is computed.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with at least
+-///                   @a num_reduction_axes dimensions defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor defined in the
+-///                    @a subgraph with @a num_reduction_axes fewer dimensions than the input tensor (if
+-///                    XNN_FLAG_KEEP_DIMS is not specified), or has same dimension rank but the dimension at
+-///                    @a reduction_axes reduced to 1 (if XNN_FLAG_KEEP_DIMS is specified).
+-/// @param flags - binary features of the Mean Node. The only currently supported value is XNN_FLAG_KEEP_DIMS
+-XNN_DEPRECATED enum xnn_status xnn_define_static_mean(
+-  xnn_subgraph_t subgraph,
+-  size_t num_reduction_axes,
+-  const size_t* reduction_axes,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ enum xnn_reduce_operator {
+   xnn_reduce_invalid = -1,
+   xnn_reduce_sum,
+@@ -1496,27 +1202,6 @@ enum xnn_reduce_operator {
+   xnn_reduce_min,
+ };
+ 
+-/// Define a Reduce Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param num_reduction_axes - number of axes along which reduce is computed.
+-/// @param reduction_axes - axes along which reduce is computed.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with at least
+-///                   @a num_reduction_axes dimensions defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor defined in the
+-///                    @a subgraph with @a num_reduction_axes fewer dimensions than the input tensor (if
+-///                    XNN_FLAG_KEEP_DIMS is not specified), or has same dimension rank but the dimension at
+-///                    @a reduction_axes reduced to 1 (if XNN_FLAG_KEEP_DIMS is specified).
+-/// @param flags - binary features of the Reduce Node. The only currently supported value is XNN_FLAG_KEEP_DIMS
+-enum xnn_status xnn_define_static_reduce(
+-  xnn_subgraph_t subgraph,
+-  enum xnn_reduce_operator reduce_operator_type,
+-  size_t num_reduction_axes,
+-  const size_t* reduction_axes,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a Reduce Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1690,22 +1375,6 @@ XNN_DEPRECATED enum xnn_status xnn_define_concatenate5(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Copy Sign Node and add it to a Subgraph.
+-///
+-/// The Copy Sign Node copies the sign of the second input to the first input.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input1_id - Value ID for the first input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param input2_id - Value ID for the second input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor.
+-/// @param flags - binary features of the Copy Sign Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_copysign(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input1_id,
+-  uint32_t input2_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a Copy Node and add it to a Subgraph.
+ ///
+ /// The Copy Node copies an input tensor to an output tensor.
+@@ -1746,95 +1415,6 @@ enum xnn_status xnn_define_even_split(
+   const uint32_t* outputs,
+   uint32_t flags);
+ 
+-/// Define a 2-Output Split Node and add it to a Subgraph.
+-///
+-/// The 2-Output Split Node splits an input tensor into two output tensors along a specified axis evenly.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param split_dim - the dimension to split the input tensor along. If this is less than zero, the number of
+-///                    dimensions is added to it.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be an N-dimensional tensor defined in the @a
+-///                   subgraph.
+-/// @param output1_id - Value ID for the first output tensor. The output tensor must be an N-dimensional tensor defined
+-///                     in the @a subgraph with each dimension, except the axis, equal to the corresponding dimension
+-///                     of the second output. The split_dim dimension is half of the input's split_dim.
+-/// @param output2_id - Value ID for the second output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the first output. The split_dim dimension is half of the input's split_dim.
+-/// @param flags - binary features of the Split Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_even_split2(
+-  xnn_subgraph_t subgraph,
+-  int32_t split_dim,
+-  uint32_t input_id,
+-  uint32_t output1_id,
+-  uint32_t output2_id,
+-  uint32_t flags);
+-
+-/// Define a 3-Output Split Node and add it to a Subgraph.
+-///
+-/// The 3-Output Split Node splits an input tensor into three output tensors along a specified axis evenly.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param split_dim - the dimension to split the input tensor along. If this is less than zero, the number of
+-///                    dimensions is added to it.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be an N-dimensional tensor defined in the @a
+-///                   subgraph.
+-/// @param output1_id - Value ID for the first output tensor. The output tensor must be an N-dimensional tensor defined
+-///                     in the @a subgraph with each dimension, except the axis, equal to the corresponding dimension
+-///                     of the second and third output. The split_dim dimension is one third of the input's split_dim.
+-/// @param output2_id - Value ID for the second output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the first and third output. The split_dim dimension is one third of the input's
+-///                     split_dim.
+-/// @param output3_id - Value ID for the third output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the second and third output. The split_dim dimension is one third of the input's
+-///                     split_dim.
+-/// @param flags - binary features of the Split Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_even_split3(
+-  xnn_subgraph_t subgraph,
+-  int32_t split_dim,
+-  uint32_t input_id,
+-  uint32_t output1_id,
+-  uint32_t output2_id,
+-  uint32_t output3_id,
+-  uint32_t flags);
+-
+-/// Define a 4-Output Split Node and add it to a Subgraph.
+-///
+-/// The 4-Output Split Node splits an input tensor into four output tensors along a specified axis evenly.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param split_dim - the dimension to split the input tensor along. If this is less than zero, the number of
+-///                    dimensions is added to it.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be an N-dimensional tensor defined in the @a
+-///                   subgraph.
+-/// @param output1_id - Value ID for the first output tensor. The output tensor must be an N-dimensional tensor defined
+-///                     in the @a subgraph with each dimension, except the axis, equal to the corresponding dimension
+-///                     of the other output tensors. The split_dim dimension is one fourth of the input's split_dim.
+-/// @param output2_id - Value ID for the second output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the other output tensors. The split_dim dimension is one fourth of the input's
+-///                     split_dim.
+-/// @param output3_id - Value ID for the third output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the other output tensors. The split_dim dimension is one fourth of the input's
+-///                     split_dim.
+-/// @param output4_id - Value ID for the fourth output tensor. The output tensor must be an N-dimensional tensor
+-///                     defined in the @a subgraph with each dimension, except the axis, equal to the corresponding
+-///                     dimension of the other output tensors. The split_dim dimension is one fourth of the input's
+-///                     split_dim.
+-/// @param flags - binary features of the Split Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_even_split4(
+-  xnn_subgraph_t subgraph,
+-  int32_t split_dim,
+-  uint32_t input_id,
+-  uint32_t output1_id,
+-  uint32_t output2_id,
+-  uint32_t output3_id,
+-  uint32_t output4_id,
+-  uint32_t flags);
+-
+ /// Define a Reshape Node with static shape specification and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1889,23 +1469,6 @@ enum xnn_status xnn_define_static_resize_bilinear_2d(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a PReLU (Parametric ReLU) Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be a 4D tensor defined in the @a subgraph
+-///                   with [N, H, W, channels] dimensions.
+-/// @param slope_id - Value ID for the slope tensor. The slope tensor must be a 1D tensor defined in the @a subgraph with
+-///                   either [1] or [channels] dimensions.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be a 4D tensor defined in the @a subgraph
+-///                    with [N, H, W, channels] dimensions.
+-/// @param flags - binary features of the PReLU Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_prelu(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t slope_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a RoPE (Rotary Positional Embeddings) Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1925,32 +1488,6 @@ enum xnn_status xnn_define_rope(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Abs Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Abs Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_abs(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Bankers' Rounding Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Bankers' Rounding Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_bankers_rounding(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a Batch Matrix Multiply Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -1978,157 +1515,6 @@ enum xnn_status xnn_define_batch_matrix_multiply(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Ceiling Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Ceiling Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_ceiling(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Clamp Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param output_min - lower bound for clipping output values.
+-/// @param output_max - upper bound for clipping output values.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Clamp Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_clamp(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define an ELU (Exponential Linear Unit) Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param alpha - scale factor for negative output elements.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the ELU Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_elu(
+-  xnn_subgraph_t subgraph,
+-  float alpha,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Exp Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Exp Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_exp(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Floor Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Floor Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_floor(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define an GELU (Gaussian Error Linear Unit) Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the GELU Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_gelu(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a HardSwish Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the HardSwish Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_hardswish(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Leaky ReLU Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param negative_slope - scale factor for negative input elements.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Leaky ReLU Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_leaky_relu(
+-  xnn_subgraph_t subgraph,
+-  float negative_slope,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Log Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Log Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_log(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Negate Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Negate Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_negate(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Sigmoid Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Sigmoid Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_sigmoid(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Define a SoftMax Node and add it to a Subgraph.
+ ///
+ /// @param subgraph - a Subgraph object that will own the created Node.
+@@ -2164,48 +1550,6 @@ enum xnn_status xnn_define_space_to_depth_2d(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Square Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Square Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_square(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Square Root Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Square Root Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_square_root(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+-/// Define a Reciprocal Square Root Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be
+-/// defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be
+-/// defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Square Root Node. No supported flags
+-/// are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_reciprocal_square_root(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ enum xnn_status xnn_define_static_slice(
+   xnn_subgraph_t subgraph,
+   size_t num_dims,
+@@ -2282,19 +1626,6 @@ enum xnn_status xnn_define_static_transpose(
+   uint32_t output_id,
+   uint32_t flags);
+ 
+-/// Define a Tanh Node and add it to a Subgraph.
+-///
+-/// @param subgraph - a Subgraph object that will own the created Node.
+-/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+-/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+-///                    shape must match the shape of the input tensor.
+-/// @param flags - binary features of the Tanh Node. No supported flags are currently defined.
+-XNN_DEPRECATED enum xnn_status xnn_define_tanh(
+-  xnn_subgraph_t subgraph,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags);
+-
+ /// Weights cache can be finalized in these ways:
+ enum xnn_weights_cache_finalization_kind {
+   /// Weights cache is finalized, no insert operations into the weights cache is allowed, even if the "inserted"
+diff --git a/sources/xnnpack/src/subgraph/deprecated.c b/sources/xnnpack/src/subgraph/deprecated.c
+index 650cbf9..1feb9a3 100644
+--- a/sources/xnnpack/src/subgraph/deprecated.c
++++ b/sources/xnnpack/src/subgraph/deprecated.c
+@@ -5,337 +5,6 @@
+ #include "include/xnnpack.h"
+ #include "src/xnnpack/subgraph.h"
+ 
+-enum xnn_status xnn_define_add2(xnn_subgraph_t subgraph, float output_min,
+-                                float output_max, uint32_t input1_id,
+-                                uint32_t input2_id, uint32_t output_id,
+-                                uint32_t flags) {
+-  struct xnn_binary_params params;
+-  params.output_min = output_min;
+-  params.output_max = output_max;
+-  return xnn_define_binary(subgraph, xnn_binary_add, &params, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_subtract(xnn_subgraph_t subgraph, float output_min,
+-                                    float output_max, uint32_t input1_id,
+-                                    uint32_t input2_id, uint32_t output_id,
+-                                    uint32_t flags) {
+-  struct xnn_binary_params params;
+-  params.output_min = output_min;
+-  params.output_max = output_max;
+-  return xnn_define_binary(subgraph, xnn_binary_subtract, &params, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_multiply2(xnn_subgraph_t subgraph, float output_min,
+-                                     float output_max, uint32_t input1_id,
+-                                     uint32_t input2_id, uint32_t output_id,
+-                                     uint32_t flags) {
+-  struct xnn_binary_params params;
+-  params.output_min = output_min;
+-  params.output_max = output_max;
+-  return xnn_define_binary(subgraph, xnn_binary_multiply, &params, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_divide(xnn_subgraph_t subgraph, float output_min,
+-                                  float output_max, uint32_t input1_id,
+-                                  uint32_t input2_id, uint32_t output_id,
+-                                  uint32_t flags) {
+-  struct xnn_binary_params params;
+-  params.output_min = output_min;
+-  params.output_max = output_max;
+-  return xnn_define_binary(subgraph, xnn_binary_divide, &params, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_maximum2(xnn_subgraph_t subgraph, uint32_t input1_id,
+-                                    uint32_t input2_id, uint32_t output_id,
+-                                    uint32_t flags) {
+-  return xnn_define_binary(subgraph, xnn_binary_maximum, NULL, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_minimum2(xnn_subgraph_t subgraph, uint32_t input1_id,
+-                                    uint32_t input2_id, uint32_t output_id,
+-                                    uint32_t flags) {
+-  return xnn_define_binary(subgraph, xnn_binary_minimum, NULL, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_squared_difference(xnn_subgraph_t subgraph,
+-                                              uint32_t input1_id,
+-                                              uint32_t input2_id,
+-                                              uint32_t output_id,
+-                                              uint32_t flags) {
+-  return xnn_define_binary(subgraph, xnn_binary_squared_difference, NULL,
+-                           input1_id, input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_copysign(xnn_subgraph_t subgraph, uint32_t input1_id,
+-                                    uint32_t input2_id, uint32_t output_id,
+-                                    uint32_t flags) {
+-  return xnn_define_binary(subgraph, xnn_binary_copysign, NULL, input1_id,
+-                           input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_prelu(xnn_subgraph_t subgraph, uint32_t input1_id,
+-                                 uint32_t input2_id, uint32_t output_id,
+-                                 uint32_t flags) {
+-  return xnn_define_binary(subgraph, xnn_binary_prelu, NULL,
+-                           input1_id, input2_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_static_mean(xnn_subgraph_t subgraph,
+-                                       size_t num_reduction_axes,
+-                                       const size_t* reduction_axes,
+-                                       uint32_t input_id, uint32_t output_id,
+-                                       uint32_t flags) {
+-  return xnn_define_static_reduce(subgraph, xnn_reduce_mean, num_reduction_axes,
+-                                  reduction_axes, input_id, output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_global_average_pooling_1d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags)
+-{
+-  const struct xnn_value* input_value = &subgraph->values[input_id];
+-
+-  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+-
+-  reduction_axes[0] = input_value->shape.num_dims - 2;
+-
+-  enum xnn_status status = (xnn_define_static_reduce(
+-    subgraph, xnn_reduce_mean, 1, reduction_axes, input_id,
+-    output_id, flags));
+-
+-  if (status != xnn_status_success) {
+-    return status;
+-  }
+-
+-  if (output_min != -INFINITY || output_max != INFINITY) {
+-    return xnn_insert_clamp_node(subgraph, output_min, output_max,
+-                                 &subgraph->nodes[subgraph->num_nodes - 1]);
+-  }
+-
+-  return xnn_status_success;
+-}
+-
+-enum xnn_status xnn_define_global_average_pooling_2d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags)
+-{
+-  const struct xnn_value* input_value = &subgraph->values[input_id];
+-
+-  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+-
+-  reduction_axes[0] = input_value->shape.num_dims - 3;
+-  reduction_axes[1] = input_value->shape.num_dims - 2;
+-
+-  enum xnn_status status = xnn_define_static_reduce(
+-    subgraph, xnn_reduce_mean, 2, reduction_axes, input_id,
+-    output_id, flags);
+-
+-  if (status != xnn_status_success) {
+-    return status;
+-  }
+-
+-  if (output_min != -INFINITY || output_max != INFINITY) {
+-    return xnn_insert_clamp_node(subgraph, output_min, output_max,
+-                                 &subgraph->nodes[subgraph->num_nodes - 1]);
+-  }
+-
+-  return xnn_status_success;
+-}
+-
+-enum xnn_status xnn_define_global_sum_pooling_1d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags)
+-{
+-  const struct xnn_value* input_value = &subgraph->values[input_id];
+-  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+-  reduction_axes[0] = input_value->shape.num_dims - 2;
+-
+-  enum xnn_status status = xnn_define_static_reduce(
+-    subgraph, xnn_reduce_sum, 1, reduction_axes, input_id,
+-    output_id, flags);
+-
+-  if (status != xnn_status_success) {
+-    return status;
+-  }
+-
+-  if (output_min != -INFINITY || output_max != INFINITY) {
+-    return xnn_insert_clamp_node(subgraph, output_min, output_max,
+-                                 &subgraph->nodes[subgraph->num_nodes - 1]);
+-  }
+-
+-  return xnn_status_success;
+-}
+-
+-enum xnn_status xnn_define_global_sum_pooling_2d(
+-  xnn_subgraph_t subgraph,
+-  float output_min,
+-  float output_max,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags)
+-{
+-  const struct xnn_value* input_value = &subgraph->values[input_id];
+-  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+-  reduction_axes[0] = input_value->shape.num_dims - 3;
+-  reduction_axes[1] = input_value->shape.num_dims - 2;
+-
+-  enum xnn_status status = xnn_define_static_reduce(
+-    subgraph, xnn_reduce_sum, 2, reduction_axes, input_id,
+-    output_id, flags);
+-
+-  if (status != xnn_status_success) {
+-    return status;
+-  }
+-
+-  if (output_min != -INFINITY || output_max != INFINITY) {
+-    return xnn_insert_clamp_node(subgraph, output_min, output_max,
+-                                 &subgraph->nodes[subgraph->num_nodes - 1]);
+-  }
+-
+-  return xnn_status_success;
+-}
+-
+-enum xnn_status xnn_define_convert(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                   uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_convert, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_abs(xnn_subgraph_t subgraph, uint32_t input_id,
+-                               uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_abs, NULL, input_id, output_id, 
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_bankers_rounding(xnn_subgraph_t subgraph,
+-                                            uint32_t input_id,
+-                                            uint32_t output_id,
+-                                            uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_bankers_rounding, NULL, input_id,
+-                          output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_ceiling(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                   uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_ceiling, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_clamp(xnn_subgraph_t subgraph, float output_min,
+-                                 float output_max, uint32_t input_id,
+-                                 uint32_t output_id, uint32_t flags) {
+-  union xnn_unary_params params;
+-  params.clamp.min = output_min;
+-  params.clamp.max = output_max;
+-  return xnn_define_unary(subgraph, xnn_unary_clamp, &params, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_elu(xnn_subgraph_t subgraph, float alpha,
+-                               uint32_t input_id, uint32_t output_id,
+-                               uint32_t flags) {
+-  union xnn_unary_params params;
+-  params.elu.alpha = alpha;
+-  return xnn_define_unary(subgraph, xnn_unary_elu, &params, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_exp(xnn_subgraph_t subgraph, uint32_t input_id,
+-                               uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_exp, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_floor(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                 uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_floor, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_gelu(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_gelu, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_hardswish(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                     uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_hardswish, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_leaky_relu(xnn_subgraph_t subgraph,
+-                                      float negative_slope, uint32_t input_id,
+-                                      uint32_t output_id, uint32_t flags) {
+-  union xnn_unary_params params;
+-  params.leaky_relu.negative_slope = negative_slope;
+-  return xnn_define_unary(subgraph, xnn_unary_leaky_relu, &params, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_log(xnn_subgraph_t subgraph, uint32_t input_id,
+-                               uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_log, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_negate(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                  uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_negate, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_sigmoid(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                   uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_sigmoid, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_square(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                  uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_square, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_square_root(xnn_subgraph_t subgraph,
+-                                       uint32_t input_id, uint32_t output_id,
+-                                       uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_square_root, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+-enum xnn_status xnn_define_reciprocal_square_root(xnn_subgraph_t subgraph,
+-                                                  uint32_t input_id,
+-                                                  uint32_t output_id,
+-                                                  uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_reciprocal_square_root, NULL, input_id,
+-                          output_id, flags);
+-}
+-
+-enum xnn_status xnn_define_tanh(xnn_subgraph_t subgraph, uint32_t input_id,
+-                                uint32_t output_id, uint32_t flags) {
+-  return xnn_define_unary(subgraph, xnn_unary_tanh, NULL, input_id, output_id,
+-                          flags);
+-}
+-
+ enum xnn_status xnn_define_concatenate2(xnn_subgraph_t subgraph, int32_t axis, uint32_t input1_id,
+                                   uint32_t input2_id, uint32_t output_id, uint32_t flags) {
+   const uint32_t inputs_id[2] = {input1_id, input2_id};
+@@ -366,23 +35,3 @@ enum xnn_status xnn_define_concatenate5(xnn_subgraph_t subgraph, int32_t axis, u
+   return xnn_define_concatenate(subgraph, axis, /*num_inputs=*/5, 
+                                 inputs_id, output_id, flags);
+ }
+-
+-enum xnn_status xnn_define_even_split2(xnn_subgraph_t subgraph, int32_t split_dim, uint32_t input_id,
+-                                  uint32_t output1_id, uint32_t output2_id, uint32_t flags) {
+-  const uint32_t outputs_id[2] = {output1_id, output2_id};
+-  return xnn_define_even_split(subgraph, split_dim, input_id, /*num_outputs=*/2, outputs_id, flags);
+-}
+-
+-enum xnn_status xnn_define_even_split3(xnn_subgraph_t subgraph, int32_t split_dim, uint32_t input_id,
+-                                  uint32_t output1_id, uint32_t output2_id, 
+-                                  uint32_t output3_id, uint32_t flags) {
+-  const uint32_t outputs_id[3] = {output1_id, output2_id, output3_id};
+-  return xnn_define_even_split(subgraph, split_dim, input_id, /*num_outputs=*/3, outputs_id, flags);
+-}
+-
+-enum xnn_status xnn_define_even_split4(xnn_subgraph_t subgraph, int32_t split_dim, uint32_t input_id,
+-                                  uint32_t output1_id, uint32_t output2_id, 
+-                                  uint32_t output3_id, uint32_t output4_id, uint32_t flags) {
+-  const uint32_t outputs_id[4] = {output1_id, output2_id, output3_id, output4_id};
+-  return xnn_define_even_split(subgraph, split_dim, input_id, /*num_outputs=*/4, outputs_id, flags);
+-}
+diff --git a/sources/xnnpack/src/subgraph/max-pooling-2d.c b/sources/xnnpack/src/subgraph/max-pooling-2d.c
+index 4a98c26..159d317 100644
+--- a/sources/xnnpack/src/subgraph/max-pooling-2d.c
++++ b/sources/xnnpack/src/subgraph/max-pooling-2d.c
+@@ -14,7 +14,6 @@
+ #include "src/xnnpack/node-type.h"
+ #include "src/xnnpack/operator-type.h"
+ #include "src/xnnpack/operator.h"
+-#include "src/xnnpack/requantization.h"
+ #include "src/xnnpack/subgraph-validation.h"
+ #include "src/xnnpack/subgraph.h"
+ #include <pthreadpool.h>
+@@ -28,101 +27,27 @@ static enum xnn_status create_max_pooling_operator(
+ {
+   assert(node->num_inputs == 1);
+   assert(node->num_outputs == 1);
+-  const uint32_t output_id = node->outputs[0];
+-  assert(output_id != XNN_INVALID_VALUE_ID);
+-  assert(output_id < num_values);
+-
+   const uint32_t input_id = node->inputs[0];
+   assert(input_id < num_values);
+   const struct xnn_runtime_value *input_value = &values[input_id];
+-  const enum xnn_datatype datatype = input_value->datatype;
+-
+-  enum xnn_status status;
+-  switch (datatype) {
+-    case xnn_datatype_fp16:
+-      status = xnn_create_max_pooling2d_nhwc_f16(
+-        node->params.pooling_2d.padding_top,
+-        node->params.pooling_2d.padding_right,
+-        node->params.pooling_2d.padding_bottom,
+-        node->params.pooling_2d.padding_left,
+-        node->params.pooling_2d.pooling_height,
+-        node->params.pooling_2d.pooling_width,
+-        node->params.pooling_2d.stride_height,
+-        node->params.pooling_2d.stride_width,
+-        node->params.pooling_2d.dilation_height,
+-        node->params.pooling_2d.dilation_width,
+-        node->activation.output_min,
+-        node->activation.output_max,
+-        node->flags,
+-        &opdata->operator_objects[0]);
+-      break;
+-    case xnn_datatype_fp32:
+-      status = xnn_create_max_pooling2d_nhwc_f32(
+-        node->params.pooling_2d.padding_top,
+-        node->params.pooling_2d.padding_right,
+-        node->params.pooling_2d.padding_bottom,
+-        node->params.pooling_2d.padding_left,
+-        node->params.pooling_2d.pooling_height,
+-        node->params.pooling_2d.pooling_width,
+-        node->params.pooling_2d.stride_height,
+-        node->params.pooling_2d.stride_width,
+-        node->params.pooling_2d.dilation_height,
+-        node->params.pooling_2d.dilation_width,
+-        node->activation.output_min,
+-        node->activation.output_max,
+-        node->flags,
+-        &opdata->operator_objects[0]);
+-      break;
+-    case xnn_datatype_qint8:
+-    {
+-      const float output_scale = values[output_id].quantization.scale;
+-      const int32_t output_zero_point = values[output_id].quantization.zero_point;
+-      const int8_t output_min = xnn_qs8_quantize(node->activation.output_min, output_scale, output_zero_point);
+-      const int8_t output_max = xnn_qs8_quantize(node->activation.output_max, output_scale, output_zero_point);
+-      status = xnn_create_max_pooling2d_nhwc_s8(
+-        node->params.pooling_2d.padding_top,
+-        node->params.pooling_2d.padding_right,
+-        node->params.pooling_2d.padding_bottom,
+-        node->params.pooling_2d.padding_left,
+-        node->params.pooling_2d.pooling_height,
+-        node->params.pooling_2d.pooling_width,
+-        node->params.pooling_2d.stride_height,
+-        node->params.pooling_2d.stride_width,
+-        node->params.pooling_2d.dilation_height,
+-        node->params.pooling_2d.dilation_width,
+-        output_min,
+-        output_max,
+-        node->flags,
+-        &opdata->operator_objects[0]);
+-      break;
+-    }
+-    case xnn_datatype_quint8:
+-    {
+-      const float output_scale = values[output_id].quantization.scale;
+-      const int32_t output_zero_point = values[output_id].quantization.zero_point;
+-      const uint8_t output_min = xnn_qu8_quantize(node->activation.output_min, output_scale, output_zero_point);
+-      const uint8_t output_max = xnn_qu8_quantize(node->activation.output_max, output_scale, output_zero_point);
+-      status = xnn_create_max_pooling2d_nhwc_u8(
+-        node->params.pooling_2d.padding_top,
+-        node->params.pooling_2d.padding_right,
+-        node->params.pooling_2d.padding_bottom,
+-        node->params.pooling_2d.padding_left,
+-        node->params.pooling_2d.pooling_height,
+-        node->params.pooling_2d.pooling_width,
+-        node->params.pooling_2d.stride_height,
+-        node->params.pooling_2d.stride_width,
+-        node->params.pooling_2d.dilation_height,
+-        node->params.pooling_2d.dilation_width,
+-        output_min,
+-        output_max,
+-        node->flags,
+-        &opdata->operator_objects[0]);
+-      break;
+-    }
+-    default:
+-      XNN_UNREACHABLE;
++  if (input_value->datatype != xnn_datatype_fp16) {
++    return xnn_status_invalid_parameter;
+   }
+-  return status;
++  return xnn_create_max_pooling2d_nhwc_f16(
++    node->params.pooling_2d.padding_top,
++    node->params.pooling_2d.padding_right,
++    node->params.pooling_2d.padding_bottom,
++    node->params.pooling_2d.padding_left,
++    node->params.pooling_2d.pooling_height,
++    node->params.pooling_2d.pooling_width,
++    node->params.pooling_2d.stride_height,
++    node->params.pooling_2d.stride_width,
++    node->params.pooling_2d.dilation_height,
++    node->params.pooling_2d.dilation_width,
++    node->activation.output_min,
++    node->activation.output_max,
++    node->flags,
++    &opdata->operator_objects[0]);
+ }
+ 
+ static enum xnn_status reshape_max_pooling_operator(
+@@ -144,64 +69,21 @@ static enum xnn_status reshape_max_pooling_operator(
+   const size_t input_width = values[input_id].shape.dim[2];
+   const size_t channels = values[input_id].shape.dim[3];
+ 
+-  enum xnn_status status = xnn_status_invalid_state;
+   size_t output_height, output_width;
+-  switch (opdata->operator_objects[0]->type) {
+-    case xnn_operator_type_max_pooling_nhwc_f16:
+-      status = xnn_reshape_max_pooling2d_nhwc_f16(
+-        opdata->operator_objects[0],
+-        batch_size,
+-        input_height,
+-        input_width,
+-        channels,
+-        /*input_pixel_stride=*/channels,
+-        /*output_pixel_stride=*/channels,
+-        &output_height,
+-        &output_width,
+-        threadpool);
+-      break;
+-    case xnn_operator_type_max_pooling_nhwc_f32:
+-      status = xnn_reshape_max_pooling2d_nhwc_f32(
+-        opdata->operator_objects[0],
+-        batch_size,
+-        input_height,
+-        input_width,
+-        channels,
+-        /*input_pixel_stride=*/channels,
+-        /*output_pixel_stride=*/channels,
+-        &output_height,
+-        &output_width,
+-        threadpool);
+-      break;
+-    case xnn_operator_type_max_pooling_nhwc_s8:
+-      status = xnn_reshape_max_pooling2d_nhwc_s8(
+-        opdata->operator_objects[0],
+-        batch_size,
+-        input_height,
+-        input_width,
+-        channels,
+-        /*input_pixel_stride=*/channels,
+-        /*output_pixel_stride=*/channels,
+-        &output_height,
+-        &output_width,
+-        threadpool);
+-      break;
+-    case xnn_operator_type_max_pooling_nhwc_u8:
+-      status = xnn_reshape_max_pooling2d_nhwc_u8(
+-        opdata->operator_objects[0],
+-        batch_size,
+-        input_height,
+-        input_width,
+-        channels,
+-        /*input_pixel_stride=*/channels,
+-        /*output_pixel_stride=*/channels,
+-        &output_height,
+-        &output_width,
+-        threadpool);
+-      break;
+-    default:
+-      XNN_UNREACHABLE;
++  if (opdata->operator_objects[0]->type != xnn_operator_type_max_pooling_nhwc_f16) {
++    return xnn_status_invalid_state;
+   }
++  const enum xnn_status status = xnn_reshape_max_pooling2d_nhwc_f16(
++    opdata->operator_objects[0],
++    batch_size,
++    input_height,
++    input_width,
++    channels,
++    /*input_pixel_stride=*/channels,
++    /*output_pixel_stride=*/channels,
++    &output_height,
++    &output_width,
++    threadpool);
+ 
+   if (status != xnn_status_success) {
+     return status;
+@@ -243,30 +125,13 @@ static enum xnn_status setup_max_pooling_operator(
+   void* output_data = output_value->data;
+   assert(output_data != NULL);
+ 
+-  switch (opdata->operator_objects[0]->type) {
+-    case xnn_operator_type_max_pooling_nhwc_f16:
+-      return xnn_setup_max_pooling2d_nhwc_f16(
+-        opdata->operator_objects[0],
+-        input_data,
+-        output_data);
+-    case xnn_operator_type_max_pooling_nhwc_f32:
+-      return xnn_setup_max_pooling2d_nhwc_f32(
+-        opdata->operator_objects[0],
+-        input_data,
+-        output_data);
+-    case xnn_operator_type_max_pooling_nhwc_s8:
+-      return xnn_setup_max_pooling2d_nhwc_s8(
+-        opdata->operator_objects[0],
+-        input_data,
+-        output_data);
+-    case xnn_operator_type_max_pooling_nhwc_u8:
+-      return xnn_setup_max_pooling2d_nhwc_u8(
+-        opdata->operator_objects[0],
+-        input_data,
+-        output_data);
+-    default:
+-      XNN_UNREACHABLE;
++  if (opdata->operator_objects[0]->type != xnn_operator_type_max_pooling_nhwc_f16) {
++    return xnn_status_invalid_state;
+   }
++  return xnn_setup_max_pooling2d_nhwc_f16(
++    opdata->operator_objects[0],
++    input_data,
++    output_data);
+ }
+ 
+ enum xnn_status xnn_define_max_pooling_2d(
+@@ -345,18 +210,12 @@ enum xnn_status xnn_define_max_pooling_2d(
+     return status;
+   }
+ 
+-  switch (input_value->datatype) {
+-    case xnn_datatype_fp16:
+-    case xnn_datatype_fp32:
+-    case xnn_datatype_qint8:
+-    case xnn_datatype_quint8:
+-      break;
+-    default:
+-      xnn_log_error(
+-        "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+-        xnn_node_type_to_string(xnn_node_type_max_pooling_2d), input_id,
+-        xnn_datatype_to_string(input_value->datatype), input_value->datatype);
+-      return xnn_status_invalid_parameter;
++  if (input_value->datatype != xnn_datatype_fp16) {
++    xnn_log_error(
++      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value datatype %s (%d); only FP16 is supported",
++      xnn_node_type_to_string(xnn_node_type_max_pooling_2d), input_id,
++      xnn_datatype_to_string(input_value->datatype), input_value->datatype);
++    return xnn_status_invalid_parameter;
+   }
+ 
+   status = xnn_subgraph_check_output_node_id(xnn_node_type_max_pooling_2d, output_id, subgraph->num_values);
+@@ -370,21 +229,12 @@ enum xnn_status xnn_define_max_pooling_2d(
+     return status;
+   }
+ 
+-  switch (output_value->datatype) {
+-    case xnn_datatype_fp16:
+-      break;
+-    case xnn_datatype_fp32:
+-      break;
+-    case xnn_datatype_qint8:
+-      break;
+-    case xnn_datatype_quint8:
+-      break;
+-    default:
+-      xnn_log_error(
+-        "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value datatype %s (%d)",
+-        xnn_node_type_to_string(xnn_node_type_max_pooling_2d), output_id,
+-        xnn_datatype_to_string(output_value->datatype), output_value->datatype);
+-      return xnn_status_invalid_parameter;
++  if (output_value->datatype != xnn_datatype_fp16) {
++    xnn_log_error(
++      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value datatype %s (%d); only FP16 is supported",
++      xnn_node_type_to_string(xnn_node_type_max_pooling_2d), output_id,
++      xnn_datatype_to_string(output_value->datatype), output_value->datatype);
++    return xnn_status_invalid_parameter;
+   }
+ 
+   status = xnn_subgraph_check_datatype_matches(
+diff --git a/sources/xnnpack/src/subgraph/static-reduce.c b/sources/xnnpack/src/subgraph/static-reduce.c
+index 766653a..304f3f9 100644
+--- a/sources/xnnpack/src/subgraph/static-reduce.c
++++ b/sources/xnnpack/src/subgraph/static-reduce.c
+@@ -245,24 +245,6 @@ static enum xnn_status setup_reduce_operator(
+   return xnn_setup_reduce_nd(opdata->operator_objects[0], workspace, input_data, output_data);
+ }
+ 
+-enum xnn_status xnn_define_static_reduce(
+-  xnn_subgraph_t subgraph,
+-  enum xnn_reduce_operator reduce_operator,
+-  size_t num_reduction_axes,
+-  const size_t* reduction_axes,
+-  uint32_t input_id,
+-  uint32_t output_id,
+-  uint32_t flags)
+-{
+-  int64_t signed_reduction_axes[XNN_MAX_TENSOR_DIMS];
+-  for (int i = 0; i < num_reduction_axes; i++) {
+-    signed_reduction_axes[i] = reduction_axes[i];
+-  }
+-  return xnn_define_static_reduce_v2(subgraph, reduce_operator,
+-                                     num_reduction_axes, signed_reduction_axes,
+-                                     input_id, output_id, flags);
+-}
+-
+ enum xnn_status xnn_define_static_reduce_v2(
+     xnn_subgraph_t subgraph, enum xnn_reduce_operator reduce_operator,
+     size_t num_reduction_axes, const int64_t* reduction_axes, uint32_t input_id,
+diff --git a/sources/xnnpack/src/subgraph/unary.c b/sources/xnnpack/src/subgraph/unary.c
+index ec73ba0..e1bb956 100644
+--- a/sources/xnnpack/src/subgraph/unary.c
++++ b/sources/xnnpack/src/subgraph/unary.c
+@@ -390,10 +390,26 @@ enum xnn_status xnn_define_unary(
+     return status;
+   }
+ 
++  if (type == xnn_unary_log) {
++    xnn_log_error("failed to define unary log node: this runtime does not support unary log");
++    return xnn_status_unsupported_parameter;
++  }
++  if (type == xnn_unary_approxgelu) {
++    xnn_log_error("failed to define approximate GELU node: this runtime does not support approximate GELU");
++    return xnn_status_unsupported_parameter;
++  }
++  if (type == xnn_unary_gelu) {
++    xnn_log_error("failed to define GELU node: this runtime does not support GELU");
++    return xnn_status_unsupported_parameter;
++  }
++  if (type == xnn_unary_elu) {
++    xnn_log_error("failed to define ELU node: this runtime does not support ELU");
++    return xnn_status_unsupported_parameter;
++  }
++
+   switch (type) {
+     case xnn_unary_clamp:
+     case xnn_unary_leaky_relu:
+-    case xnn_unary_elu:
+       if (!params) {
+         xnn_log_error("failed to define %s node with input ID #%" PRIu32
+                       " and output ID #%" PRIu32 ": missing clamp params",

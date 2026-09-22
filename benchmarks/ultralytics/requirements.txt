@@ -1,0 +1,9 @@
+# Optional Ultralytics benchmark and compatibility adapter dependencies.
+-r ../../requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+ultralytics==8.4.108
+pillow==12.3.0
+PyYAML==6.0.3
+ultralytics-thop==2.1.6

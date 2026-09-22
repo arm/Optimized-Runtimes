@@ -1,0 +1,13 @@
+# Static-analysis tools used by the repository quality gate.
+-r requirements.txt
+PyYAML==6.0.3
+
+clang-format==18.1.8
+coverage==7.16.1
+gcovr==8.6
+mypy==2.3.1
+pytest==9.1.1
+ruff==0.16.7
+vulture==2.16
+
+import-linter==2.15

@@ -1,0 +1,1125 @@
+diff --git a/sources/xnnpack/src/f16-gemm/gen/f16-gemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S b/sources/xnnpack/src/f16-gemm/gen/f16-gemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
+index 1084af8..6487821 100644
+--- a/sources/xnnpack/src/f16-gemm/gen/f16-gemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
++++ b/sources/xnnpack/src/f16-gemm/gen/f16-gemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
+@@ -1,5 +1,7 @@
+ // clang-format off
+-// Auto-generated file. Do not edit!
++// Project-maintained derivative of an XNNPACK-generated kernel. The upstream
++// template does not contain the YOLO26n fused entry point; do not regenerate
++// this file without reproducing and requalifying the changes below.
+ //   Template: src/f16-gemm/1x16-aarch64-neonfp16arith-ld64.S.in
+ //   Generator: tools/xngen
+ //
+@@ -10,6 +12,42 @@
+ 
+ #include "src/xnnpack/assembly.h"
+ 
++// Apply SiLU(x) = x / (1 + exp(-x)) to eight FP16 accumulators before they
++// reach the kernel's existing stores. The approximation and instruction order
++// match the standalone FP16 SiLU kernel so fusion does not change its bits:
++// range-reduce abs(x), approximate exp(-abs(x)), refine the reciprocal once,
++// select sigmoid(x) by sign, then multiply by the original x.
++//
++// The vector argument is both input and result. v0-v7 are scratch. v8-v15 are
++// constants loaded once by the fused entry: magic bias, -log2(e), split ln(2),
++// two polynomial coefficients, 1.0, and the denormal cutoff. Because v8-v15
++// are callee-saved, the fused entry preserves them in a 128-byte stack frame.
++.macro YOLO26_EXACT_SILU vector
++        FABS        v0.8h, \vector\().8h
++        MOV         v1.16b, v8.16b
++        FMLA        v1.8h, v0.8h, v9.8h
++        SHL         v2.8h, v1.8h, 10
++        FSUB        v1.8h, v1.8h, v8.8h
++        FMLA        v0.8h, v1.8h, v10.8h
++        FMLA        v0.8h, v1.8h, v11.8h
++        MOV         v6.16b, v13.16b
++        FMLA        v6.8h, v12.8h, v0.8h
++        FMUL        v0.8h, v0.8h, v2.8h
++        FMLA        v2.8h, v6.8h, v0.8h
++        FADD        v0.8h, v2.8h, v14.8h
++        FRECPE      v1.8h, v0.8h
++        MOV         v7.16b, v14.16b
++        FMLS        v7.8h, v1.8h, v0.8h
++        FMLA        v1.8h, v1.8h, v7.8h
++        FMUL        v0.8h, v2.8h, v1.8h
++        FACGT       v1.8h, \vector\().8h, v15.8h
++        BIC         v0.16b, v0.16b, v1.16b
++        FCMLT       v1.8h, \vector\().8h, 0.0
++        FSUB        v7.8h, v14.8h, v0.8h
++        BSL         v1.16b, v0.16b, v7.16b
++        FMUL        \vector\().8h, \vector\().8h, v1.8h
++.endm
++
+ # void xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64(
+ #     size_t mr,                (x0) - unused.  mr = 1
+ #     size_t nc,                x1
+@@ -31,9 +69,42 @@
+ // clamp  v4, v5
+ 
+ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
++        # x15 selects the unmodified min/max-and-store path.
++        MOV         x15, 0
++        B           .Lyolo26_gemm_1x16_entry
++END_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
++
++BEGIN_FUNCTION xnn_yolo26_f16_gemm_silu_1x16__asm_aarch64_neonfp16arith_ld64
++        # x15 selects SiLU after min/max clamping and before the shared full or
++        # channel-tail stores. Both entries otherwise execute the same GEMM.
++        MOV         x15, 1
++.Lyolo26_gemm_1x16_entry:
+         # Load cn_stride, params pointer
+         LDP         x14, x8, [sp]
+ 
++        CBZ         x15, .Lyolo26_gemm_1x16_constants_done
++        STP         q8, q9, [sp, -128]!
++        STP         q10, q11, [sp, 32]
++        STP         q12, q13, [sp, 64]
++        STP         q14, q15, [sp, 96]
++        MOV         w0, 0x660F          // FP16 magic bias
++        DUP         v8.8h, w0
++        MOV         w0, 0xBDC5          // FP16 -log2(e)
++        DUP         v9.8h, w0
++        MOV         w0, 0x398C          // FP16 ln(2) high part
++        DUP         v10.8h, w0
++        MOV         w0, 0x8AF4          // FP16 ln(2) low part
++        DUP         v11.8h, w0
++        MOV         w0, 0x37F9          // FP16 exponential coefficient c2
++        DUP         v12.8h, w0
++        MOV         w0, 0xBC0E          // FP16 exponential coefficient c1
++        DUP         v13.8h, w0
++        MOV         w0, 0x3C00          // FP16 1.0
++        DUP         v14.8h, w0
++        MOV         w0, 0xC8DA          // FP16 denormal cutoff
++        DUP         v15.8h, w0
++.Lyolo26_gemm_1x16_constants_done:
++
+         # Load params values
+         LD2R        {v4.8h, v5.8h}, [x8]
+ 0:
+@@ -93,6 +164,11 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+         FMIN        v16.8h, v16.8h, v5.8h
+         FMIN        v17.8h, v17.8h, v5.8h
+ 
++        CBZ         x15, .Lyolo26_gemm_1x16_store
++        YOLO26_EXACT_SILU v16
++        YOLO26_EXACT_SILU v17
++.Lyolo26_gemm_1x16_store:
++
+         # Store full 1 x 16
+         B.LO        5f
+ 
+@@ -103,7 +179,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+ 
+         B.HI        0b
+ 
+-        RET
++        B           .Lyolo26_gemm_1x16_return
+ 
+         # Remainder- 1 to 3 halffloats of A (2 to 6 bytes)
+ 3:
+@@ -146,9 +222,18 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+         TBZ         x1, 0, 9f
+         STR         h16, [x6]
+ 9:
++        B           .Lyolo26_gemm_1x16_return
++
++.Lyolo26_gemm_1x16_return:
++        CBZ         x15, .Lyolo26_gemm_1x16_ret
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++.Lyolo26_gemm_1x16_ret:
+         RET
+ 
+-END_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
++END_FUNCTION xnn_yolo26_f16_gemm_silu_1x16__asm_aarch64_neonfp16arith_ld64
+ 
+ #ifdef __ELF__
+ .section ".note.GNU-stack","",%progbits
+diff --git a/sources/xnnpack/src/f16-gemm/gen/f16-gemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S b/sources/xnnpack/src/f16-gemm/gen/f16-gemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
+index 5c3007a..040d650 100644
+--- a/sources/xnnpack/src/f16-gemm/gen/f16-gemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
++++ b/sources/xnnpack/src/f16-gemm/gen/f16-gemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
+@@ -1,5 +1,7 @@
+ // clang-format off
+-// Auto-generated file. Do not edit!
++// Project-maintained derivative of an XNNPACK-generated kernel. The upstream
++// template does not contain the YOLO26n fused entry point; do not regenerate
++// this file without reproducing and requalifying the changes below.
+ //   Template: src/f16-gemm/6x16-aarch64-neonfp16arith-cortex-a75.S.in
+ //   Generator: tools/xngen
+ //
+@@ -10,6 +12,42 @@
+ 
+ #include "src/xnnpack/assembly.h"
+ 
++// Apply SiLU(x) = x / (1 + exp(-x)) to eight FP16 accumulators before they
++// reach the kernel's existing stores. The approximation and instruction order
++// match the standalone FP16 SiLU kernel so fusion does not change its bits:
++// range-reduce abs(x), approximate exp(-abs(x)), refine the reciprocal once,
++// select sigmoid(x) by sign, then multiply by the original x.
++//
++// The vector argument is both input and result. v0-v5 are scratch in this
++// 6-row kernel. v8-v15 hold magic bias, -log2(e), split ln(2), two polynomial
++// coefficients, 1.0, and the denormal cutoff. The fused entry preserves these
++// callee-saved registers in a 128-byte stack frame.
++.macro YOLO26_EXACT_SILU vector
++        FABS        v0.8h, \vector\().8h
++        MOV         v1.16b, v8.16b
++        FMLA        v1.8h, v0.8h, v9.8h
++        SHL         v2.8h, v1.8h, 10
++        FSUB        v1.8h, v1.8h, v8.8h
++        FMLA        v0.8h, v1.8h, v10.8h
++        FMLA        v0.8h, v1.8h, v11.8h
++        MOV         v3.16b, v13.16b
++        FMLA        v3.8h, v12.8h, v0.8h
++        FMUL        v0.8h, v0.8h, v2.8h
++        FMLA        v2.8h, v3.8h, v0.8h
++        FADD        v0.8h, v2.8h, v14.8h
++        FRECPE      v1.8h, v0.8h
++        MOV         v4.16b, v14.16b
++        FMLS        v4.8h, v1.8h, v0.8h
++        FMLA        v1.8h, v1.8h, v4.8h
++        FMUL        v0.8h, v2.8h, v1.8h
++        FACGT       v1.8h, \vector\().8h, v15.8h
++        BIC         v0.16b, v0.16b, v1.16b
++        FCMLT       v1.8h, \vector\().8h, 0.0
++        FSUB        v4.8h, v14.8h, v0.8h
++        BSL         v1.16b, v0.16b, v4.16b
++        FMUL        \vector\().8h, \vector\().8h, v1.8h
++.endm
++
+ # void xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75(
+ #     size_t mr,                x0
+ #     size_t nc,                x1
+@@ -45,6 +83,16 @@
+ // unused B   v12 v13 v14 v15
+ 
+ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75
++        # x15 selects the unmodified min/max-and-store path.
++        MOV         x15, 0
++        B           .Lyolo26_gemm_6x16_entry
++END_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75
++
++BEGIN_FUNCTION xnn_yolo26_f16_gemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75
++        # x15 selects SiLU after min/max clamping and before the shared full or
++        # row/channel-tail stores. Both entries otherwise execute the same GEMM.
++        MOV         x15, 1
++.Lyolo26_gemm_6x16_entry:
+ 
+         # Load params pointer
+         LDR         x8, [sp, 8]
+@@ -85,6 +133,29 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_corte
+ 
+         LDR         x8, [sp]                // load cn_stride
+ 
++        CBZ         x15, .Lyolo26_gemm_6x16_constants_done
++        STP         q8, q9, [sp, -128]!
++        STP         q10, q11, [sp, 32]
++        STP         q12, q13, [sp, 64]
++        STP         q14, q15, [sp, 96]
++        MOV         w0, 0x660F          // FP16 magic bias
++        DUP         v8.8h, w0
++        MOV         w0, 0xBDC5          // FP16 -log2(e)
++        DUP         v9.8h, w0
++        MOV         w0, 0x398C          // FP16 ln(2) high part
++        DUP         v10.8h, w0
++        MOV         w0, 0x8AF4          // FP16 ln(2) low part
++        DUP         v11.8h, w0
++        MOV         w0, 0x37F9          // FP16 exponential coefficient c2
++        DUP         v12.8h, w0
++        MOV         w0, 0xBC0E          // FP16 exponential coefficient c1
++        DUP         v13.8h, w0
++        MOV         w0, 0x3C00          // FP16 1.0
++        DUP         v14.8h, w0
++        MOV         w0, 0xC8DA          // FP16 denormal cutoff
++        DUP         v15.8h, w0
++.Lyolo26_gemm_6x16_constants_done:
++
+ 0:
+         # Load initial bias from w into accumulators
+         LDP         q20, q21, [x5], 32
+@@ -284,6 +355,21 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_corte
+         FMIN        v30.8h, v30.8h, v5.8h
+         FMIN        v31.8h, v31.8h, v5.8h
+ 
++        CBZ         x15, .Lyolo26_gemm_6x16_store
++        YOLO26_EXACT_SILU v20
++        YOLO26_EXACT_SILU v21
++        YOLO26_EXACT_SILU v22
++        YOLO26_EXACT_SILU v23
++        YOLO26_EXACT_SILU v24
++        YOLO26_EXACT_SILU v25
++        YOLO26_EXACT_SILU v26
++        YOLO26_EXACT_SILU v27
++        YOLO26_EXACT_SILU v28
++        YOLO26_EXACT_SILU v29
++        YOLO26_EXACT_SILU v30
++        YOLO26_EXACT_SILU v31
++.Lyolo26_gemm_6x16_store:
++
+         # Store full 6 x 16
+         B.LO        6f
+ 
+@@ -301,7 +387,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_corte
+         SUB         x4,  x4, x2             // a5 -= kc
+ 
+         B.HI        0b
+-        RET
++        B           .Lyolo26_gemm_6x16_return
+ 
+         # Remainder- 1-3 halffloats of A (2-6 bytes)
+ 4:
+@@ -421,9 +507,18 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_corte
+         STR         h28, [x13]
+         STR         h30,  [x7]
+ 10:
++        B           .Lyolo26_gemm_6x16_return
++
++.Lyolo26_gemm_6x16_return:
++        CBZ         x15, .Lyolo26_gemm_6x16_ret
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++.Lyolo26_gemm_6x16_ret:
+         RET
+ 
+-END_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75
++END_FUNCTION xnn_yolo26_f16_gemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75
+ 
+ #ifdef __ELF__
+ .section ".note.GNU-stack","",%progbits
+diff --git a/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S b/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
+index dcaea2e..784b3d3 100644
+--- a/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
++++ b/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S
+@@ -5,6 +5,45 @@
+ 
+ #include "src/xnnpack/assembly.h"
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++// The separate *-yolo26-silu.S wrapper defines XNN_YOLO26_IGEMM_SILU and
++// renames the exported symbol. Thus stock and fused entries are compiled from
++// one convolution body and cannot drift in packing, accumulation, or tails.
++//
++// Apply SiLU(x) = x / (1 + exp(-x)) after min/max clamping and before every
++// full or channel-tail store. This macro uses the standalone FP16 SiLU
++// approximation in the same instruction order: range-reduce abs(x), estimate
++// exp(-abs(x)), refine the reciprocal once, select sigmoid by sign, and
++// multiply by the original accumulator. Its vector argument is input/result;
++// v0-v3 are scratch and v8-v15 hold the approximation constants. The fused
++// entry preserves callee-saved q8-q15 in a 128-byte stack frame.
++.macro YOLO26_EXACT_SILU vector
++        FABS        v0.8h, \vector\().8h
++        MOV         v1.16b, v8.16b
++        FMLA        v1.8h, v0.8h, v9.8h
++        SHL         v2.8h, v1.8h, 10
++        FSUB        v1.8h, v1.8h, v8.8h
++        FMLA        v0.8h, v1.8h, v10.8h
++        FMLA        v0.8h, v1.8h, v11.8h
++        MOV         v3.16b, v13.16b
++        FMLA        v3.8h, v12.8h, v0.8h
++        FMUL        v0.8h, v0.8h, v2.8h
++        FMLA        v2.8h, v3.8h, v0.8h
++        FADD        v0.8h, v2.8h, v14.8h
++        FRECPE      v1.8h, v0.8h
++        MOV         v3.16b, v14.16b
++        FMLS        v3.8h, v1.8h, v0.8h
++        FMLA        v1.8h, v1.8h, v3.8h
++        FMUL        v0.8h, v2.8h, v1.8h
++        FACGT       v1.8h, \vector\().8h, v15.8h
++        BIC         v0.16b, v0.16b, v1.16b
++        FCMLT       v1.8h, \vector\().8h, 0.0
++        FSUB        v3.8h, v14.8h, v0.8h
++        BSL         v1.16b, v0.16b, v3.16b
++        FMUL        \vector\().8h, \vector\().8h, v1.8h
++.endm
++#endif
++
+ # void xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64(
+ #     size_t mr,                         (x0) - unused.  mr = 1
+ #     size_t nc,                         x1
+@@ -34,6 +73,29 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+         # Load zero, params pointer
+         LDP         x12, x8, [sp, 16]
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++        STP         q8, q9, [sp, -128]!
++        STP         q10, q11, [sp, 32]
++        STP         q12, q13, [sp, 64]
++        STP         q14, q15, [sp, 96]
++        MOV         w0, 0x660F          // FP16 magic bias
++        DUP         v8.8h, w0
++        MOV         w0, 0xBDC5          // FP16 -log2(e)
++        DUP         v9.8h, w0
++        MOV         w0, 0x398C          // FP16 ln(2) high part
++        DUP         v10.8h, w0
++        MOV         w0, 0x8AF4          // FP16 ln(2) low part
++        DUP         v11.8h, w0
++        MOV         w0, 0x37F9          // FP16 exponential coefficient c2
++        DUP         v12.8h, w0
++        MOV         w0, 0xBC0E          // FP16 exponential coefficient c1
++        DUP         v13.8h, w0
++        MOV         w0, 0x3C00          // FP16 1.0
++        DUP         v14.8h, w0
++        MOV         w0, 0xC8DA          // FP16 denormal cutoff
++        DUP         v15.8h, w0
++#endif
++
+         # Load params values
+         LD2R        {v4.8h, v5.8h}, [x8]
+ 
+@@ -108,6 +170,11 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+         FMIN        v16.8h, v16.8h, v5.8h
+         FMIN        v17.8h, v17.8h, v5.8h
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++        YOLO26_EXACT_SILU v16
++        YOLO26_EXACT_SILU v17
++#endif
++
+         # Store full 1 x 16
+         SUBS        x1, x1, 16
+         B.LO        6f
+@@ -119,6 +186,12 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+ 
+         # nc loop
+         B.HI        0b
++#ifdef XNN_YOLO26_IGEMM_SILU
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++#endif
+         RET
+ 
+ 
+@@ -162,6 +235,12 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+         TBZ         x1, 0, 10f
+         STR         h16, [x6]
+ 10:
++#ifdef XNN_YOLO26_IGEMM_SILU
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++#endif
+         RET
+ 
+ END_FUNCTION xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64
+diff --git a/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-yolo26-silu-asm-aarch64-neonfp16arith-ld64.S b/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-yolo26-silu-asm-aarch64-neonfp16arith-ld64.S
+new file mode 100644
+index 0000000..4f3c55d
+--- /dev/null
++++ b/sources/xnnpack/src/f16-igemm/f16-igemm-1x16-yolo26-silu-asm-aarch64-neonfp16arith-ld64.S
+@@ -0,0 +1,6 @@
++// Compile the shared IGEMM body as the fused YOLO26n entry. The included file
++// documents the arithmetic, register, stack, and tail-store contract.
++#define XNN_YOLO26_IGEMM_SILU 1
++#define xnn_f16_igemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64 \
++  xnn_yolo26_f16_igemm_silu_1x16__asm_aarch64_neonfp16arith_ld64
++#include "src/f16-igemm/f16-igemm-1x16-minmax-asm-aarch64-neonfp16arith-ld64.S"
+diff --git a/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S b/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
+index e16125a..4f5922c 100644
+--- a/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
++++ b/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S
+@@ -5,6 +5,45 @@
+ 
+ #include "src/xnnpack/assembly.h"
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++// The separate *-yolo26-silu.S wrapper defines XNN_YOLO26_IGEMM_SILU and
++// renames the exported symbol. Thus stock and fused entries are compiled from
++// one convolution body and cannot drift in packing, accumulation, or tails.
++//
++// Apply SiLU(x) = x / (1 + exp(-x)) after min/max clamping and before every
++// full, row-tail, or channel-tail store. This macro uses the standalone FP16
++// SiLU approximation in the same instruction order: range-reduce abs(x),
++// estimate exp(-abs(x)), refine the reciprocal once, select sigmoid by sign,
++// and multiply by the original accumulator. Its vector argument is
++// input/result; v0-v4 are scratch and v8-v15 hold the constants. The fused
++// entry preserves callee-saved q8-q15 in a 128-byte stack frame.
++.macro YOLO26_EXACT_SILU vector
++        FABS        v0.8h, \vector\().8h
++        MOV         v1.16b, v8.16b
++        FMLA        v1.8h, v0.8h, v9.8h
++        SHL         v2.8h, v1.8h, 10
++        FSUB        v1.8h, v1.8h, v8.8h
++        FMLA        v0.8h, v1.8h, v10.8h
++        FMLA        v0.8h, v1.8h, v11.8h
++        MOV         v3.16b, v13.16b
++        FMLA        v3.8h, v12.8h, v0.8h
++        FMUL        v0.8h, v0.8h, v2.8h
++        FMLA        v2.8h, v3.8h, v0.8h
++        FADD        v0.8h, v2.8h, v14.8h
++        FRECPE      v1.8h, v0.8h
++        MOV         v4.16b, v14.16b
++        FMLS        v4.8h, v1.8h, v0.8h
++        FMLA        v1.8h, v1.8h, v4.8h
++        FMUL        v0.8h, v2.8h, v1.8h
++        FACGT       v1.8h, \vector\().8h, v15.8h
++        BIC         v0.16b, v0.16b, v1.16b
++        FCMLT       v1.8h, \vector\().8h, 0.0
++        FSUB        v4.8h, v14.8h, v0.8h
++        BSL         v1.16b, v0.16b, v4.16b
++        FMUL        \vector\().8h, \vector\().8h, v1.8h
++.endm
++#endif
++
+ # void xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75(
+ #     size_t mr,                         x0
+ #     size_t nc,                         x1
+@@ -72,6 +111,29 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cort
+         STP         x20, x21, [sp, -32]!
+         STP         x22, x23, [sp, 16]
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++        STP         q8, q9, [sp, -128]!
++        STP         q10, q11, [sp, 32]
++        STP         q12, q13, [sp, 64]
++        STP         q14, q15, [sp, 96]
++        MOV         w0, 0x660F          // FP16 magic bias
++        DUP         v8.8h, w0
++        MOV         w0, 0xBDC5          // FP16 -log2(e)
++        DUP         v9.8h, w0
++        MOV         w0, 0x398C          // FP16 ln(2) high part
++        DUP         v10.8h, w0
++        MOV         w0, 0x8AF4          // FP16 ln(2) low part
++        DUP         v11.8h, w0
++        MOV         w0, 0x37F9          // FP16 exponential coefficient c2
++        DUP         v12.8h, w0
++        MOV         w0, 0xBC0E          // FP16 exponential coefficient c1
++        DUP         v13.8h, w0
++        MOV         w0, 0x3C00          // FP16 1.0
++        DUP         v14.8h, w0
++        MOV         w0, 0xC8DA          // FP16 denormal cutoff
++        DUP         v15.8h, w0
++#endif
++
+ 0:
+         # Load initial bias from w into accumulators
+         LDP         q20, q21, [x5], 32
+@@ -307,6 +369,21 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cort
+         FMIN        v30.8h, v30.8h, v5.8h
+         FMIN        v31.8h, v31.8h, v5.8h
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++        YOLO26_EXACT_SILU v20
++        YOLO26_EXACT_SILU v21
++        YOLO26_EXACT_SILU v22
++        YOLO26_EXACT_SILU v23
++        YOLO26_EXACT_SILU v24
++        YOLO26_EXACT_SILU v25
++        YOLO26_EXACT_SILU v26
++        YOLO26_EXACT_SILU v27
++        YOLO26_EXACT_SILU v28
++        YOLO26_EXACT_SILU v29
++        YOLO26_EXACT_SILU v30
++        YOLO26_EXACT_SILU v31
++#endif
++
+         # Store full 6 x 16
+         B.LO        7f
+ 
+@@ -322,6 +399,12 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cort
+         # nc loop
+         B.HI        0b
+ 
++#ifdef XNN_YOLO26_IGEMM_SILU
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++#endif
+         # Restore x20-x23 from stack
+         LDP         x22, x23, [sp, 16]
+         LDP         x20, x21, [sp], 32
+@@ -444,6 +527,12 @@ BEGIN_FUNCTION xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cort
+         STR         h22, [x16]
+         STR         h20,  [x6]
+ 11:
++#ifdef XNN_YOLO26_IGEMM_SILU
++        LDP         q10, q11, [sp, 32]
++        LDP         q12, q13, [sp, 64]
++        LDP         q14, q15, [sp, 96]
++        LDP         q8, q9, [sp], 128
++#endif
+         # Restore x20-x23 from stack
+         LDP         x22, x23, [sp, 16]
+         LDP         x20, x21, [sp], 32
+diff --git a/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-yolo26-silu-asm-aarch64-neonfp16arith-cortex-a75.S b/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-yolo26-silu-asm-aarch64-neonfp16arith-cortex-a75.S
+new file mode 100644
+index 0000000..f674480
+--- /dev/null
++++ b/sources/xnnpack/src/f16-igemm/f16-igemm-6x16-yolo26-silu-asm-aarch64-neonfp16arith-cortex-a75.S
+@@ -0,0 +1,6 @@
++// Compile the shared IGEMM body as the fused YOLO26n entry. The included file
++// documents the arithmetic, register, stack, and tail-store contract.
++#define XNN_YOLO26_IGEMM_SILU 1
++#define xnn_f16_igemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75 \
++  xnn_yolo26_f16_igemm_silu_6x16__asm_aarch64_neonfp16arith_cortex_a75
++#include "src/f16-igemm/f16-igemm-6x16-minmax-asm-aarch64-neonfp16arith-cortex-a75.S"
+diff --git a/sources/xnnpack/src/f16-vsilu/f16-vsilu-neonfp16arith-rr2-p2-nr1fma-u32.c b/sources/xnnpack/src/f16-vsilu/f16-vsilu-neonfp16arith-rr2-p2-nr1fma-u32.c
+new file mode 100644
+index 0000000..5470b9a
+--- /dev/null
++++ b/sources/xnnpack/src/f16-vsilu/f16-vsilu-neonfp16arith-rr2-p2-nr1fma-u32.c
+@@ -0,0 +1,241 @@
++// clang-format off
++// Project-maintained derivative of XNNPACK's generated sigmoid kernel.
++// Source of truth: src/runtime/patches/xnnpack-yolo26-kernels.patch.
++// Do not regenerate independently; this file adds final multiplication by x.
++//   Template: src/f16-vsigmoid/neonfp16arith.c.in
++//   Generator: tools/xngen
++//
++// Copyright 2022 Google LLC
++//
++// This source code is licensed under the BSD-style license found in the
++// LICENSE file in the root directory of this source tree.
++
++#include <arm_neon.h>
++#include <assert.h>
++#include <stddef.h>
++#include <stdint.h>
++
++#include "src/xnnpack/common.h"
++#include "src/xnnpack/math.h"
++#include "src/xnnpack/microparams.h"
++#include "src/xnnpack/vunary.h"
++
++// Compute SiLU(x) = x * sigmoid(x) directly in FP16 NEON vectors. The kernel
++// follows XNNPACK's sigmoid approximation, then performs the final multiply by
++// x before storing. `batch` is a byte count, so each eight-lane vector consumes
++// 8 * sizeof(uint16_t) bytes.
++void xnn_f16_vsilu_ukernel__neonfp16arith_rr2_p2_nr1fma_u32(
++    size_t batch,
++    const xnn_float16* input,
++    xnn_float16* output,
++    const struct xnn_f16_default_params* restrict params) XNN_OOB_READS
++{
++  assert(batch != 0);
++  assert(batch % sizeof(uint16_t) == 0);
++  assert(input != NULL);
++  assert(output != NULL);
++
++  // Constants for reducing exp(-abs(x)) into an exponent and a small
++  // polynomial remainder, followed by the reciprocal used by sigmoid.
++  const float16x8_t vmagic_bias = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0x660F)));  // 0x1.83Cp+10h
++  const float16x8_t vminus_log2e = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0xBDC5)));  // -0x1.714p+0h
++  const float16x8_t vln2_hi = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0x398C)));  // 0x1.630p-1h
++  const float16x8_t vln2_lo = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0x8AF4)));  // -0x1.BD0p-13h
++  const float16x8_t vc2 = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0x37F9)));  // 0x1.FE4p-2h
++  const float16x8_t vc1 = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0xBC0E)));  // -0x1.038p+0h
++  const float16x8_t vone = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0x3C00)));  // 1.0h
++  const float16x8_t vdenorm_cutoff = vreinterpretq_f16_u16(vmovq_n_u16(UINT16_C(0xC8DA)));  // -0x1.368p+3h
++
++  XNN_FORCE_REALIZATION(vmagic_bias);
++  XNN_FORCE_REALIZATION(vminus_log2e);
++  XNN_FORCE_REALIZATION(vln2_hi);
++  XNN_FORCE_REALIZATION(vln2_lo);
++  XNN_FORCE_REALIZATION(vc2);
++  XNN_FORCE_REALIZATION(vc1);
++  XNN_FORCE_REALIZATION(vone);
++  XNN_FORCE_REALIZATION(vdenorm_cutoff);
++
++  const uint16_t* i = (const uint16_t*) input;
++  uint16_t* o = (uint16_t*) output;
++  // Main loop: process four eight-lane vectors together to expose enough
++  // independent work for the processor to overlap the approximation steps.
++  for (; batch >= 32 * sizeof(uint16_t); batch -= 32 * sizeof(uint16_t)) {
++    const float16x8_t vx0 = vreinterpretq_f16_u16(vld1q_u16(i)); i += 8;
++    const float16x8_t vx1 = vreinterpretq_f16_u16(vld1q_u16(i)); i += 8;
++    const float16x8_t vx2 = vreinterpretq_f16_u16(vld1q_u16(i)); i += 8;
++    const float16x8_t vx3 = vreinterpretq_f16_u16(vld1q_u16(i)); i += 8;
++
++    // Reduce exp(-abs(x)) into a power-of-two scale and a small remainder.
++    const float16x8_t vz0 = vabsq_f16(vx0);
++    const float16x8_t vz1 = vabsq_f16(vx1);
++    const float16x8_t vz2 = vabsq_f16(vx2);
++    const float16x8_t vz3 = vabsq_f16(vx3);
++
++    float16x8_t vn0 = vfmaq_f16(vmagic_bias, vz0, vminus_log2e);
++    float16x8_t vn1 = vfmaq_f16(vmagic_bias, vz1, vminus_log2e);
++    float16x8_t vn2 = vfmaq_f16(vmagic_bias, vz2, vminus_log2e);
++    float16x8_t vn3 = vfmaq_f16(vmagic_bias, vz3, vminus_log2e);
++
++    const float16x8_t vs0 = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn0), 10));
++    const float16x8_t vs1 = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn1), 10));
++    const float16x8_t vs2 = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn2), 10));
++    const float16x8_t vs3 = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn3), 10));
++
++    vn0 = vsubq_f16(vn0, vmagic_bias);
++    vn1 = vsubq_f16(vn1, vmagic_bias);
++    vn2 = vsubq_f16(vn2, vmagic_bias);
++    vn3 = vsubq_f16(vn3, vmagic_bias);
++
++    float16x8_t vt0 = vfmaq_f16(vz0, vn0, vln2_hi);
++    float16x8_t vt1 = vfmaq_f16(vz1, vn1, vln2_hi);
++    float16x8_t vt2 = vfmaq_f16(vz2, vn2, vln2_hi);
++    float16x8_t vt3 = vfmaq_f16(vz3, vn3, vln2_hi);
++
++    vt0 = vfmaq_f16(vt0, vn0, vln2_lo);
++    vt1 = vfmaq_f16(vt1, vn1, vln2_lo);
++    vt2 = vfmaq_f16(vt2, vn2, vln2_lo);
++    vt3 = vfmaq_f16(vt3, vn3, vln2_lo);
++
++    // Approximate exp(-abs(x)) over the reduced interval.
++    const float16x8_t vp0 = vfmaq_f16(vc1, vc2, vt0);
++    const float16x8_t vp1 = vfmaq_f16(vc1, vc2, vt1);
++    const float16x8_t vp2 = vfmaq_f16(vc1, vc2, vt2);
++    const float16x8_t vp3 = vfmaq_f16(vc1, vc2, vt3);
++
++    vt0 = vmulq_f16(vt0, vs0);
++    vt1 = vmulq_f16(vt1, vs1);
++    vt2 = vmulq_f16(vt2, vs2);
++    vt3 = vmulq_f16(vt3, vs3);
++
++    const float16x8_t ve0 = vfmaq_f16(vs0, vp0, vt0);
++    const float16x8_t ve1 = vfmaq_f16(vs1, vp1, vt1);
++    const float16x8_t ve2 = vfmaq_f16(vs2, vp2, vt2);
++    const float16x8_t ve3 = vfmaq_f16(vs3, vp3, vt3);
++
++    // Form exp(-abs(x)) / (1 + exp(-abs(x))) using a reciprocal estimate and
++    // one refinement step.
++    const float16x8_t vd0 = vaddq_f16(ve0, vone);
++    const float16x8_t vd1 = vaddq_f16(ve1, vone);
++    const float16x8_t vd2 = vaddq_f16(ve2, vone);
++    const float16x8_t vd3 = vaddq_f16(ve3, vone);
++
++    float16x8_t vr0 = vrecpeq_f16(vd0);
++    float16x8_t vr1 = vrecpeq_f16(vd1);
++    float16x8_t vr2 = vrecpeq_f16(vd2);
++    float16x8_t vr3 = vrecpeq_f16(vd3);
++
++    const float16x8_t vadj0 = vfmsq_f16(vone, vr0, vd0);
++    const float16x8_t vadj1 = vfmsq_f16(vone, vr1, vd1);
++    const float16x8_t vadj2 = vfmsq_f16(vone, vr2, vd2);
++    const float16x8_t vadj3 = vfmsq_f16(vone, vr3, vd3);
++
++    vr0 = vfmaq_f16(vr0, vr0, vadj0);
++    vr1 = vfmaq_f16(vr1, vr1, vadj1);
++    vr2 = vfmaq_f16(vr2, vr2, vadj2);
++    vr3 = vfmaq_f16(vr3, vr3, vadj3);
++
++    float16x8_t vf0 = vmulq_f16(ve0, vr0);
++    float16x8_t vf1 = vmulq_f16(ve1, vr1);
++    float16x8_t vf2 = vmulq_f16(ve2, vr2);
++    float16x8_t vf3 = vmulq_f16(ve3, vr3);
++
++    vf0 = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf0), vcagtq_f16(vx0, vdenorm_cutoff)));
++    vf1 = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf1), vcagtq_f16(vx1, vdenorm_cutoff)));
++    vf2 = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf2), vcagtq_f16(vx2, vdenorm_cutoff)));
++    vf3 = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf3), vcagtq_f16(vx3, vdenorm_cutoff)));
++
++    // Restore sigmoid's sign-dependent form: use the ratio for negative x and
++    // one minus the ratio otherwise. Multiplying by x produces SiLU.
++    const uint16x8_t vm0 = vcltq_f16(vx0, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++    const uint16x8_t vm1 = vcltq_f16(vx1, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++    const uint16x8_t vm2 = vcltq_f16(vx2, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++    const uint16x8_t vm3 = vcltq_f16(vx3, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++
++    vf0 = vbslq_f16(vm0, vf0, vsubq_f16(vone, vf0));
++    vf1 = vbslq_f16(vm1, vf1, vsubq_f16(vone, vf1));
++    vf2 = vbslq_f16(vm2, vf2, vsubq_f16(vone, vf2));
++    vf3 = vbslq_f16(vm3, vf3, vsubq_f16(vone, vf3));
++
++    vf0 = vmulq_f16(vx0, vf0);
++    vf1 = vmulq_f16(vx1, vf1);
++    vf2 = vmulq_f16(vx2, vf2);
++    vf3 = vmulq_f16(vx3, vf3);
++
++    vst1q_u16(o, vreinterpretq_u16_f16(vf0)); o += 8;
++    vst1q_u16(o, vreinterpretq_u16_f16(vf1)); o += 8;
++    vst1q_u16(o, vreinterpretq_u16_f16(vf2)); o += 8;
++    vst1q_u16(o, vreinterpretq_u16_f16(vf3)); o += 8;
++  }
++  // Process any remaining complete vector with the same approximation.
++  for (; batch >= 8 * sizeof(uint16_t); batch -= 8 * sizeof(uint16_t)) {
++    const float16x8_t vx = vreinterpretq_f16_u16(vld1q_u16(i)); i += 8;
++
++    const float16x8_t vz = vabsq_f16(vx);
++
++    float16x8_t vn = vfmaq_f16(vmagic_bias, vz, vminus_log2e);
++    const float16x8_t vs = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn), 10));
++    vn = vsubq_f16(vn, vmagic_bias);
++
++    float16x8_t vt = vfmaq_f16(vz, vn, vln2_hi);
++    vt = vfmaq_f16(vt, vn, vln2_lo);
++
++    const float16x8_t vp = vfmaq_f16(vc1, vc2, vt);
++    vt = vmulq_f16(vt, vs);
++    const float16x8_t ve = vfmaq_f16(vs, vp, vt);
++    const float16x8_t vd = vaddq_f16(ve, vone);
++
++    float16x8_t vr = vrecpeq_f16(vd);
++    const float16x8_t vadj = vfmsq_f16(vone, vr, vd);
++    vr = vfmaq_f16(vr, vr, vadj);
++
++    float16x8_t vf = vmulq_f16(ve, vr);
++    vf = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf), vcagtq_f16(vx, vdenorm_cutoff)));
++    const uint16x8_t vm = vcltq_f16(vx, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++    vf = vbslq_f16(vm, vf, vsubq_f16(vone, vf));
++
++    vf = vmulq_f16(vx, vf);
++    vst1q_u16(o, vreinterpretq_u16_f16(vf)); o += 8;
++  }
++  // XNNPACK permits one full vector read past the logical end. Compute that
++  // vector, then store only the one, two, or four valid trailing values.
++  if XNN_UNLIKELY(batch != 0) {
++    const float16x8_t vx = vreinterpretq_f16_u16(vld1q_u16(i));
++
++    const float16x8_t vz = vabsq_f16(vx);
++
++    float16x8_t vn = vfmaq_f16(vmagic_bias, vz, vminus_log2e);
++    const float16x8_t vs = vreinterpretq_f16_s16(vshlq_n_s16(vreinterpretq_s16_f16(vn), 10));
++    vn = vsubq_f16(vn, vmagic_bias);
++
++    float16x8_t vt = vfmaq_f16(vz, vn, vln2_hi);
++    vt = vfmaq_f16(vt, vn, vln2_lo);
++
++    const float16x8_t vp = vfmaq_f16(vc1, vc2, vt);
++    vt = vmulq_f16(vt, vs);
++    const float16x8_t ve = vfmaq_f16(vs, vp, vt);
++    const float16x8_t vd = vaddq_f16(ve, vone);
++
++    float16x8_t vr = vrecpeq_f16(vd);
++    const float16x8_t vadj = vfmsq_f16(vone, vr, vd);
++    vr = vfmaq_f16(vr, vr, vadj);
++
++    float16x8_t vf = vmulq_f16(ve, vr);
++    vf = vreinterpretq_f16_u16(vbicq_u16(vreinterpretq_u16_f16(vf), vcagtq_f16(vx, vdenorm_cutoff)));
++    const uint16x8_t vm = vcltq_f16(vx, vreinterpretq_f16_u16(vmovq_n_u16(0)));
++    vf = vbslq_f16(vm, vf, vsubq_f16(vone, vf));
++
++    vf = vmulq_f16(vx, vf);
++    float16x4_t vf_lo = vget_low_f16(vf);
++    if (batch & (4 * sizeof(uint16_t))) {
++      vst1_u16(o, vreinterpret_u16_f16(vf_lo)); o += 4;
++      vf_lo = vget_high_f16(vf);
++    }
++    if (batch & (2 * sizeof(uint16_t))) {
++      vst1_lane_u32((void*) o, vreinterpret_u32_f16(vf_lo), 0); o += 2;
++      vf_lo = vext_f16(vf_lo, vf_lo, 2);
++    }
++    if (batch & (1 * sizeof(uint16_t))) {
++      vst1_lane_u16(o, vreinterpret_u16_f16(vf_lo), 0);
++    }
++  }
++}
+diff --git a/sources/xnnpack/src/f16-vsilu/f16-vsilu.inc b/sources/xnnpack/src/f16-vsilu/f16-vsilu.inc
+new file mode 100644
+index 0000000..c95e0c6
+--- /dev/null
++++ b/sources/xnnpack/src/f16-vsilu/f16-vsilu.inc
+@@ -0,0 +1,6 @@
++// clang-format off
++// Copyright 2026 Arm Limited and/or its affiliates.
++
++#if XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64
++XNN_UKERNEL(xnn_arch_arm_neon_fp16_arith, xnn_f16_vsilu_ukernel__neonfp16arith_rr2_p2_nr1fma_u32, 32, false, xnn_float16, struct xnn_f16_default_params, NULL)
++#endif
+diff --git a/sources/xnnpack/src/f32-vsilu/f32-vsilu-neonfma-rr1-lut64-p2-nr2recps-u16.c b/sources/xnnpack/src/f32-vsilu/f32-vsilu-neonfma-rr1-lut64-p2-nr2recps-u16.c
+new file mode 100644
+index 0000000..673b912
+--- /dev/null
++++ b/sources/xnnpack/src/f32-vsilu/f32-vsilu-neonfma-rr1-lut64-p2-nr2recps-u16.c
+@@ -0,0 +1,284 @@
++// clang-format off
++// Project-maintained derivative of XNNPACK's generated sigmoid kernel.
++// Source of truth: src/runtime/patches/xnnpack-yolo26-kernels.patch.
++// Do not regenerate independently; this file adds final multiplication by x.
++//   Template: src/f32-vsigmoid/neon-lut64-p2.c.in
++//   Generator: tools/xngen
++//
++// Copyright 2019 Google LLC
++//
++// This source code is licensed under the BSD-style license found in the
++// LICENSE file in the root directory of this source tree.
++
++#include <arm_neon.h>
++#include <assert.h>
++#include <stddef.h>
++#include <stdint.h>
++
++#include "src/xnnpack/common.h"
++#include "src/xnnpack/microparams.h"
++#include "src/xnnpack/vunary.h"
++
++
++extern XNN_INTERNAL const uint32_t xnn_table_exp2minus_k_over_64[64];
++
++// Compute SiLU(x) = x * sigmoid(x) in FP32 NEON vectors. The sigmoid portion
++// approximates exp(-abs(x)) using a 64-entry power-of-two table and a quadratic
++// remainder, then the final multiply by x is performed before storing. `batch`
++// is a byte count, so each four-lane vector consumes 4 * sizeof(float) bytes.
++void xnn_f32_vsilu_ukernel__neonfma_rr1_lut64_p2_nr2recps_u16(
++    size_t batch,
++    const float* input,
++    float* output,
++    const struct xnn_f32_default_params* restrict params) XNN_OOB_READS
++{
++  assert(batch != 0);
++  assert(batch % sizeof(float) == 0);
++  assert(input != NULL);
++  assert(output != NULL);
++
++  // Constants used to split exp(-abs(x)) into a table index, an exponent, and
++  // a small remainder suitable for the polynomial approximation.
++  const float32x4_t vmagic_bias = vmovq_n_f32(0x1.800000p17f);
++  const float32x4_t vminus_log2e = vmovq_n_f32(-0x1.715476p0f);
++  const int32x4_t vindex_mask = vmovq_n_s32(INT32_C(0x3F));
++  const float32x4_t vc2 = vmovq_n_f32(0x1.FFFF0Ap-2f);
++  const float32x4_t vone = vmovq_n_f32(1.0f);
++  const float32x4_t vdenorm_cutoff = vmovq_n_f32(0x1.5D589Ep+6f);
++
++  XNN_FORCE_REALIZATION(vmagic_bias);
++  XNN_FORCE_REALIZATION(vminus_log2e);
++  // XNN_FORCE_REALIZATION(vindex_mask);
++  XNN_FORCE_REALIZATION(vc2);
++  // XNN_FORCE_REALIZATION(vone);
++  XNN_FORCE_REALIZATION(vdenorm_cutoff);
++
++  const float32x4_t vln2 = vmovq_n_f32(0x1.62E430p-1f);
++  XNN_FORCE_REALIZATION(vln2);
++
++  // Main loop: process four four-lane vectors together to expose independent
++  // table loads and arithmetic for the processor to overlap.
++  for (; batch >= 16 * sizeof(float); batch -= 16 * sizeof(float)) {
++    const float32x4_t vx0123 = vld1q_f32(input); input += 4;
++    const float32x4_t vx4567 = vld1q_f32(input); input += 4;
++    const float32x4_t vx89AB = vld1q_f32(input); input += 4;
++    const float32x4_t vxCDEF = vld1q_f32(input); input += 4;
++
++    // Reduce exp(-abs(x)) into a table-selected power of two and a remainder.
++    const float32x4_t vz0123 = vabsq_f32(vx0123);
++    const float32x4_t vz4567 = vabsq_f32(vx4567);
++    const float32x4_t vz89AB = vabsq_f32(vx89AB);
++    const float32x4_t vzCDEF = vabsq_f32(vxCDEF);
++
++    float32x4_t vn0123 = vfmaq_f32(vmagic_bias, vz0123, vminus_log2e);
++    float32x4_t vn4567 = vfmaq_f32(vmagic_bias, vz4567, vminus_log2e);
++    float32x4_t vn89AB = vfmaq_f32(vmagic_bias, vz89AB, vminus_log2e);
++    float32x4_t vnCDEF = vfmaq_f32(vmagic_bias, vzCDEF, vminus_log2e);
++
++    const int32x4_t ve0123 = vshlq_n_s32(vreinterpretq_s32_f32(vn0123), 17);
++    const int32x4_t ve4567 = vshlq_n_s32(vreinterpretq_s32_f32(vn4567), 17);
++    const int32x4_t ve89AB = vshlq_n_s32(vreinterpretq_s32_f32(vn89AB), 17);
++    const int32x4_t veCDEF = vshlq_n_s32(vreinterpretq_s32_f32(vnCDEF), 17);
++
++    // The low six bits select the 2^(-k/64) table entry for each lane.
++    const uint64x2_t vidx0123 = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vn0123), vindex_mask));
++    const uint64x2_t vidx4567 = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vn4567), vindex_mask));
++    const uint64x2_t vidx89AB = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vn89AB), vindex_mask));
++    const uint64x2_t vidxCDEF = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vnCDEF), vindex_mask));
++
++    const uint64_t vidx01 = vgetq_lane_u64(vidx0123, 0);
++    const uint64_t vidx23 = vgetq_lane_u64(vidx0123, 1);
++    float32x2_t vl01 = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx01]);
++    float32x2_t vl23 = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx23]);
++    const uint64_t vidx45 = vgetq_lane_u64(vidx4567, 0);
++    const uint64_t vidx67 = vgetq_lane_u64(vidx4567, 1);
++    float32x2_t vl45 = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx45]);
++    float32x2_t vl67 = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx67]);
++    const uint64_t vidx89 = vgetq_lane_u64(vidx89AB, 0);
++    const uint64_t vidxAB = vgetq_lane_u64(vidx89AB, 1);
++    float32x2_t vl89 = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx89]);
++    float32x2_t vlAB = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidxAB]);
++    const uint64_t vidxCD = vgetq_lane_u64(vidxCDEF, 0);
++    const uint64_t vidxEF = vgetq_lane_u64(vidxCDEF, 1);
++    float32x2_t vlCD = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidxCD]);
++    float32x2_t vlEF = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidxEF]);
++
++    vl01 = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx01 >> 32)], vl01, 1);
++    vl23 = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx23 >> 32)], vl23, 1);
++    const float32x4_t vl0123 = vcombine_f32(vl01, vl23);
++    vl45 = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx45 >> 32)], vl45, 1);
++    vl67 = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx67 >> 32)], vl67, 1);
++    const float32x4_t vl4567 = vcombine_f32(vl45, vl67);
++    vl89 = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx89 >> 32)], vl89, 1);
++    vlAB = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidxAB >> 32)], vlAB, 1);
++    const float32x4_t vl89AB = vcombine_f32(vl89, vlAB);
++    vlCD = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidxCD >> 32)], vlCD, 1);
++    vlEF = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidxEF >> 32)], vlEF, 1);
++    const float32x4_t vlCDEF = vcombine_f32(vlCD, vlEF);
++
++    const float32x4_t vs0123 = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vl0123), ve0123));
++    const float32x4_t vs4567 = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vl4567), ve4567));
++    const float32x4_t vs89AB = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vl89AB), ve89AB));
++    const float32x4_t vsCDEF = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vlCDEF), veCDEF));
++
++    vn0123 = vsubq_f32(vn0123, vmagic_bias);
++    vn4567 = vsubq_f32(vn4567, vmagic_bias);
++    vn89AB = vsubq_f32(vn89AB, vmagic_bias);
++    vnCDEF = vsubq_f32(vnCDEF, vmagic_bias);
++
++    float32x4_t vt0123 = vfmaq_f32(vz0123, vn0123, vln2);
++    float32x4_t vt4567 = vfmaq_f32(vz4567, vn4567, vln2);
++    float32x4_t vt89AB = vfmaq_f32(vz89AB, vn89AB, vln2);
++    float32x4_t vtCDEF = vfmaq_f32(vzCDEF, vnCDEF, vln2);
++
++    // Apply the quadratic correction to approximate exp(-abs(x)).
++    float32x4_t vp0123 = vmulq_f32(vt0123, vc2);
++    float32x4_t vp4567 = vmulq_f32(vt4567, vc2);
++    float32x4_t vp89AB = vmulq_f32(vt89AB, vc2);
++    float32x4_t vpCDEF = vmulq_f32(vtCDEF, vc2);
++
++    vp0123 = vfmsq_f32(vt0123, vp0123, vt0123);
++    vp4567 = vfmsq_f32(vt4567, vp4567, vt4567);
++    vp89AB = vfmsq_f32(vt89AB, vp89AB, vt89AB);
++    vpCDEF = vfmsq_f32(vtCDEF, vpCDEF, vtCDEF);
++
++    const float32x4_t vy0123 = vfmsq_f32(vs0123, vs0123, vp0123);
++    const float32x4_t vy4567 = vfmsq_f32(vs4567, vs4567, vp4567);
++    const float32x4_t vy89AB = vfmsq_f32(vs89AB, vs89AB, vp89AB);
++    const float32x4_t vyCDEF = vfmsq_f32(vsCDEF, vsCDEF, vpCDEF);
++
++    // Form exp(-abs(x)) / (1 + exp(-abs(x))) and refine the reciprocal twice.
++    const float32x4_t vd0123 = vaddq_f32(vy0123, vone);
++    const float32x4_t vd4567 = vaddq_f32(vy4567, vone);
++    const float32x4_t vd89AB = vaddq_f32(vy89AB, vone);
++    const float32x4_t vdCDEF = vaddq_f32(vyCDEF, vone);
++
++    float32x4_t vr0123 = vrecpeq_f32(vd0123);
++    float32x4_t vr4567 = vrecpeq_f32(vd4567);
++    float32x4_t vr89AB = vrecpeq_f32(vd89AB);
++    float32x4_t vrCDEF = vrecpeq_f32(vdCDEF);
++
++    vr0123 = vmulq_f32(vr0123, vrecpsq_f32(vr0123, vd0123));
++    vr4567 = vmulq_f32(vr4567, vrecpsq_f32(vr4567, vd4567));
++    vr89AB = vmulq_f32(vr89AB, vrecpsq_f32(vr89AB, vd89AB));
++    vrCDEF = vmulq_f32(vrCDEF, vrecpsq_f32(vrCDEF, vdCDEF));
++
++    vr0123 = vmulq_f32(vr0123, vrecpsq_f32(vr0123, vd0123));
++    vr4567 = vmulq_f32(vr4567, vrecpsq_f32(vr4567, vd4567));
++    vr89AB = vmulq_f32(vr89AB, vrecpsq_f32(vr89AB, vd89AB));
++    vrCDEF = vmulq_f32(vrCDEF, vrecpsq_f32(vrCDEF, vdCDEF));
++
++    float32x4_t vf0123 = vmulq_f32(vy0123, vr0123);
++    float32x4_t vf4567 = vmulq_f32(vy4567, vr4567);
++    float32x4_t vf89AB = vmulq_f32(vy89AB, vr89AB);
++    float32x4_t vfCDEF = vmulq_f32(vyCDEF, vrCDEF);
++
++    vf0123 = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vf0123), vcagtq_f32(vx0123, vdenorm_cutoff)));
++    vf4567 = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vf4567), vcagtq_f32(vx4567, vdenorm_cutoff)));
++    vf89AB = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vf89AB), vcagtq_f32(vx89AB, vdenorm_cutoff)));
++    vfCDEF = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vfCDEF), vcagtq_f32(vxCDEF, vdenorm_cutoff)));
++
++    // Restore sigmoid's sign-dependent form, multiply by x to produce SiLU,
++    // and store all sixteen results.
++    const uint32x4_t vm0123 = vcltq_f32(vx0123, vmovq_n_f32(0.0f));
++    const uint32x4_t vm4567 = vcltq_f32(vx4567, vmovq_n_f32(0.0f));
++    const uint32x4_t vm89AB = vcltq_f32(vx89AB, vmovq_n_f32(0.0f));
++    const uint32x4_t vmCDEF = vcltq_f32(vxCDEF, vmovq_n_f32(0.0f));
++
++    vf0123 = vbslq_f32(vm0123, vf0123, vsubq_f32(vone, vf0123));
++    vf4567 = vbslq_f32(vm4567, vf4567, vsubq_f32(vone, vf4567));
++    vf89AB = vbslq_f32(vm89AB, vf89AB, vsubq_f32(vone, vf89AB));
++    vfCDEF = vbslq_f32(vmCDEF, vfCDEF, vsubq_f32(vone, vfCDEF));
++
++    vst1q_f32(output, vmulq_f32(vx0123, vf0123)); output += 4;
++    vst1q_f32(output, vmulq_f32(vx4567, vf4567)); output += 4;
++    vst1q_f32(output, vmulq_f32(vx89AB, vf89AB)); output += 4;
++    vst1q_f32(output, vmulq_f32(vxCDEF, vfCDEF)); output += 4;
++  }
++  // Process any remaining complete vector with the same approximation.
++  for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
++    const float32x4_t vx = vld1q_f32(input); input += 4;
++
++    const float32x4_t vz = vabsq_f32(vx);
++
++    float32x4_t vn = vfmaq_f32(vmagic_bias, vz, vminus_log2e);
++    const int32x4_t ve = vshlq_n_s32(vreinterpretq_s32_f32(vn), 17);
++
++    const uint64x2_t vidx = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vn), vindex_mask));
++    const uint64_t vidx_lo = vgetq_lane_u64(vidx, 0);
++    const uint64_t vidx_hi = vgetq_lane_u64(vidx, 1);
++    float32x2_t vl_lo = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx_lo]);
++    float32x2_t vl_hi = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx_hi]);
++    vl_lo = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx_lo >> 32)], vl_lo, 1);
++    vl_hi = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx_hi >> 32)], vl_hi, 1);
++    const float32x4_t vl = vcombine_f32(vl_lo, vl_hi);
++
++    const float32x4_t vs = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vl), ve));
++    vn = vsubq_f32(vn, vmagic_bias);
++    float32x4_t vt = vfmaq_f32(vz, vn, vln2);
++
++    float32x4_t vp = vmulq_f32(vt, vc2);
++    vp = vfmsq_f32(vt, vp, vt);
++
++    const float32x4_t vy = vfmsq_f32(vs, vs, vp);
++    const float32x4_t vd = vaddq_f32(vy, vone);
++
++    float32x4_t vr = vrecpeq_f32(vd);
++    vr = vmulq_f32(vr, vrecpsq_f32(vr, vd));
++    vr = vmulq_f32(vr, vrecpsq_f32(vr, vd));
++
++    float32x4_t vf = vmulq_f32(vy, vr);
++    vf = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vf), vcagtq_f32(vx, vdenorm_cutoff)));
++    const uint32x4_t vm = vcltq_f32(vx, vmovq_n_f32(0.0f));
++    vf = vbslq_f32(vm, vf, vsubq_f32(vone, vf));
++
++    vst1q_f32(output, vmulq_f32(vx, vf)); output += 4;
++  }
++  // XNNPACK permits one full vector read past the logical end. Compute that
++  // vector, then store only the one or two valid trailing values.
++  if XNN_UNLIKELY(batch != 0) {
++    const float32x4_t vx = vld1q_f32(input);
++
++    const float32x4_t vz = vabsq_f32(vx);
++
++    float32x4_t vn = vfmaq_f32(vmagic_bias, vz, vminus_log2e);
++    const int32x4_t ve = vshlq_n_s32(vreinterpretq_s32_f32(vn), 17);
++
++    const uint64x2_t vidx = vreinterpretq_u64_s32(vandq_s32(vreinterpretq_s32_f32(vn), vindex_mask));
++    const uint64_t vidx_lo = vgetq_lane_u64(vidx, 0);
++    const uint64_t vidx_hi = vgetq_lane_u64(vidx, 1);
++    float32x2_t vl_lo = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx_lo]);
++    float32x2_t vl_hi = vld1_dup_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) vidx_hi]);
++    vl_lo = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx_lo >> 32)], vl_lo, 1);
++    vl_hi = vld1_lane_f32((const float*) &xnn_table_exp2minus_k_over_64[(uint32_t) (vidx_hi >> 32)], vl_hi, 1);
++    const float32x4_t vl = vcombine_f32(vl_lo, vl_hi);
++
++    const float32x4_t vs = vreinterpretq_f32_s32(vaddq_s32(vreinterpretq_s32_f32(vl), ve));
++    vn = vsubq_f32(vn, vmagic_bias);
++    float32x4_t vt = vfmaq_f32(vz, vn, vln2);
++
++    float32x4_t vp = vmulq_f32(vt, vc2);
++    vp = vfmsq_f32(vt, vp, vt);
++
++    const float32x4_t vy = vfmsq_f32(vs, vs, vp);
++    const float32x4_t vd = vaddq_f32(vy, vone);
++
++    float32x4_t vr = vrecpeq_f32(vd);
++    vr = vmulq_f32(vr, vrecpsq_f32(vr, vd));
++    vr = vmulq_f32(vr, vrecpsq_f32(vr, vd));
++
++    float32x4_t vf = vmulq_f32(vy, vr);
++    vf = vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(vf), vcagtq_f32(vx, vdenorm_cutoff)));
++    const uint32x4_t vm = vcltq_f32(vx, vmovq_n_f32(0.0f));
++    vf = vbslq_f32(vm, vf, vsubq_f32(vone, vf));
++
++    float32x2_t vf_lo = vget_low_f32(vmulq_f32(vx, vf));
++    if (batch & (2 * sizeof(float))) {
++      vst1_f32(output, vf_lo); output += 2;
++      vf_lo = vget_high_f32(vmulq_f32(vx, vf));
++    }
++    if (batch & (1 * sizeof(float))) {
++      vst1_lane_f32(output, vf_lo, 0);
++    }
++  }
++}
+diff --git a/sources/xnnpack/src/f32-vsilu/f32-vsilu.inc b/sources/xnnpack/src/f32-vsilu/f32-vsilu.inc
+new file mode 100644
+index 0000000..6e290c6
+--- /dev/null
++++ b/sources/xnnpack/src/f32-vsilu/f32-vsilu.inc
+@@ -0,0 +1,6 @@
++// clang-format off
++// Copyright 2026 Arm Limited and/or its affiliates.
++
++#if XNN_ARCH_ARM64
++XNN_UKERNEL(xnn_arch_arm_neon_fma, xnn_f32_vsilu_ukernel__neonfma_rr1_lut64_p2_nr2recps_u16, 16, false, float, struct xnn_f32_default_params, NULL)
++#endif  // XNN_ARCH_ARM64

@@ -1,0 +1,111 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arm-yolo26n"
+dynamic = ["version"]
+description = "YOLO26n inference for Raspberry Pi 5"
+readme = "src/runtime/api/python/arm_yolo26n/README.md"
+requires-python = ">=3.13,<3.14"
+license = "Apache-2.0"
+dependencies = [
+  "numpy==2.2.4",
+  "opencv-python-headless==5.0.0.93",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src/runtime/api/python"}
+packages = ["arm_yolo26n"]
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION"]}
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src/converter", "src/runtime/api/python/arm_yolo26n", "benchmarks/reporting"]
+
+[tool.ruff.lint]
+select = [
+  "ANN",    # Missing or imprecise annotations.
+  "ARG",    # Unused arguments.
+  "B",      # Likely bugs found by flake8-bugbear.
+  "C90",    # McCabe complexity.
+  "E4",     # Import errors.
+  "E7",     # Statement errors.
+  "E9",     # Runtime syntax errors.
+  "F",      # Pyflakes correctness checks.
+  "I",      # Import ordering.
+  "PLR0912", # Excessive branches.
+  "PLR0913", # Excessive arguments.
+  "PLR0915", # Excessive statements.
+  "UP",     # Obsolete Python constructs.
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 10
+max-statements = 40
+
+[tool.mypy]
+python_version = "3.13"
+files = [
+  "src/converter",
+  "src/runtime/api/python/arm_yolo26n",
+  "benchmarks/reporting",
+  "benchmarks/ultralytics/benchmark.py",
+]
+strict = true
+disallow_any_explicit = true
+warn_unreachable = true
+show_error_codes = true
+pretty = true
+
+[tool.vulture]
+paths = [
+  "src/converter",
+  "src/runtime/api/python/arm_yolo26n",
+  "benchmarks/reporting",
+  "benchmarks/ultralytics/benchmark.py",
+]
+min_confidence = 90
+sort_by_size = true
+
+[tool.coverage.run]
+branch = true
+data_file = "build/coverage/python/.coverage"
+omit = ["examples/.venv/*", "examples/*/output/*"]
+parallel = true
+patch = ["subprocess"]
+relative_files = true
+source = [
+  "benchmarks/reporting",
+  "examples",
+  "src/converter",
+  "src/runtime/api/python/arm_yolo26n",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+
+[tool.importlinter]
+root_packages = ["converter"]
+
+[[tool.importlinter.contracts]]
+name = "Converter dependencies flow toward stable contracts"
+type = "layers"
+exhaustive = true
+containers = ["converter"]
+layers = [
+  "validate",
+  "export_yolo26n",
+  "checkpoint_intake : weight_lowering : model_format",
+  "model_validation",
+  "checkpoint_decoder : model_contract : weight_contract",
+  "converter_io",
+]

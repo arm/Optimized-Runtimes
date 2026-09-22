@@ -1,0 +1,142 @@
+# Release publishing workflow
+
+## Purpose
+
+The public repository will build release candidates in hosted Arm CI, qualify
+those exact files on a supported Raspberry Pi 5, and publish them without a
+second build. This preserves the clean CI build environment while making
+physical-device validation a release requirement.
+
+This workflow is recorded here for implementation when the project moves to
+its public repository. It does not add release credentials or publication
+automation to the current repository.
+
+## Published files
+
+The release page presents one primary download for the supported platform:
+
+```text
+arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz
+```
+
+This is the prebuilt distribution for running YOLO26n. It contains the native
+runtime installation and the Python wheel. The release notes link to it as
+**Download for Raspberry Pi 5** and give the extraction and Python installation
+commands. A Python application needs no other release asset.
+
+Repository examples obtain this distribution automatically. The public
+implementation must derive a version-specific release URL from the checkout
+rather than using `releases/latest`, so an older tag continues to obtain its
+own runtime.
+
+| File | Owner | Contents |
+| --- | --- | --- |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | Release assembly from CMake and Python outputs | Ready-to-run native installation, Python wheel, project license, and third-party licenses |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | CMake and CPack | Optional C header and unversioned linker name for C or C++ development |
+| `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
+
+GitHub's archive for the release tag is the complete project source
+distribution for users who want to inspect or build the project. GitHub labels
+those automatic assets **Source code (zip)** and **Source code (tar.gz)**. A
+separate Python source distribution is unnecessary unless the Python package
+is later published through an index such as PyPI.
+
+The release contains no checkpoint or converted model. Qualification downloads
+the official checkpoint from its publisher, verifies its known digest, and
+keeps it out of the published files in accordance with
+[`yolo26n-raspberry-pi-publishing-strategy.md`](yolo26n-raspberry-pi-publishing-strategy.md).
+
+## Required pre-merge and post-merge checks
+
+The public repository requires the normal build and test workflow on pull
+requests. Applicable contributions containing AI-generated code also require
+the maintainer-approved Black Duck snippet scan described in
+[`black-duck-scanning-scheme.md`](black-duck-scanning-scheme.md).
+
+After merge, the trusted full Black Duck scan records the runtime, examples,
+build, and Ultralytics dependency closures. A release candidate must come from
+a `main` commit whose scan completed successfully and whose BOM and notice
+decisions have been reviewed. The release workflow references that result; it
+does not repeat an unchanged scan.
+
+## Candidate construction
+
+A separate, manually triggered GitHub Actions workflow accepts a version and a
+commit already present on `main`. It uses the controlled hosted Arm Debian
+Trixie build environment and the existing package owners:
+
+1. verify that the requested version agrees with the CMake and Python package
+   metadata;
+2. build the Python wheel;
+3. have CMake build and ABI-check the runtime, then have CPack produce the
+   runtime and development components;
+4. assemble the installed runtime component and unchanged Python wheel into
+   the platform-named prebuilt distribution;
+5. inspect the archives for their expected installed files;
+6. generate SHA-256 checksums and a candidate manifest containing the source
+   commit and every file identity; and
+7. create a draft GitHub release targeting that commit and upload the complete
+   candidate once.
+
+The workflow sequences existing CMake and Python packaging commands. It does
+not introduce another native or Python packager and does not alter the outputs
+produced by those owners. Its release assembly gives users one platform
+distribution instead of requiring them to identify and combine implementation
+components. Pull-request workflows continue to verify packaging but do not
+retain downloadable packages.
+
+## Raspberry Pi qualification
+
+Qualification is performed by a human on a Raspberry Pi 5 matching
+[`supported-environment.md`](supported-environment.md); it does not require a
+self-hosted GitHub runner. The maintainer downloads the candidate with the
+GitHub interface or `gh release download` and verifies its manifest and
+checksums. Draft releases are visible to maintainers but are not public
+releases.
+
+The Pi is freshly restarted before qualification. After startup activity has
+settled, qualification runs without unrelated user workloads competing for
+CPU, memory, or I/O. It uses a clean staging directory and Python virtual
+environment, installs only the downloaded candidate files, and never builds
+the native runtime from the repository checkout.
+
+The qualification procedure exercises:
+
+- installation of the candidate runtime and Python wheel;
+- checkpoint conversion and native execution at every supported resolution;
+- the prerecorded-video example;
+- the reviewed Ultralytics accuracy and performance workload; and
+- both Picamera2 examples when the release claims camera support.
+
+Performance measurement runs through the existing benchmark-reporting harness.
+Its benchmark log, artifact identities, and before-and-after host context are
+retained rather than reproduced by release-specific measurement code.
+
+Qualification produces a normal test report and one evidence directory. The
+report identifies the candidate manifest, source commit, Pi environment,
+commands and outcomes, camera model when applicable, and the accuracy and
+performance evidence. A changed candidate digest invalidates the report and
+requires qualification of the new file.
+
+## Review and publication
+
+Performance acceptance is a human review decision. The workflow records the
+measurements and environment but defines no automatic regression threshold. A
+maintainer decides whether to publish, investigate, or repeat the session.
+
+After functional, accuracy, performance, camera, license, and Black Duck
+evidence have been reviewed, a maintainer:
+
+1. verifies that the draft release targets the qualified source commit;
+2. verifies its existing candidate checksums against the qualification report;
+3. attaches the qualification evidence to that draft; and
+4. publishes the draft without rebuilding, replacing, or re-uploading a
+   candidate artifact.
+
+Publication may later be automated behind a protected GitHub release
+environment, but it must continue to consume the qualified candidate rather
+than invoking another build.
+
+If candidate construction, Black Duck review, Pi qualification, or human
+performance review is incomplete, no release is published. An unavailable
+camera also prevents a release from claiming qualified camera support.

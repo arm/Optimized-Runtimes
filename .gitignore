@@ -1,0 +1,17 @@
+/build/
+/dist/
+/downloads/
+/examples/.venv/
+/examples/*/output/
+/benchmarks/ultralytics/.venv/
+/benchmarks/ultralytics/output/
+/benchmarks/reporting/output/
+*.pyc
+*.egg-info/
+__pycache__/
+/.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*

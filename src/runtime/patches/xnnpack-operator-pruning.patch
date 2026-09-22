@@ -1,0 +1,1252 @@
+diff --git a/sources/xnnpack/src/configs/maxpool-config.c b/sources/xnnpack/src/configs/maxpool-config.c
+index 4026b8d..2fcca07 100644
+--- a/sources/xnnpack/src/configs/maxpool-config.c
++++ b/sources/xnnpack/src/configs/maxpool-config.c
+@@ -17,14 +17,8 @@
+ #include "src/xnnpack/microparams-init.h"
+ 
+ static struct xnn_maxpool_config f16_maxpool_config = {0};
+-static struct xnn_maxpool_config f32_maxpool_config = {0};
+-static struct xnn_maxpool_config s8_maxpool_config = {0};
+-static struct xnn_maxpool_config u8_maxpool_config = {0};
+ 
+ XNN_INIT_ONCE_GUARD(f16_maxpool);
+-XNN_INIT_ONCE_GUARD(f32_maxpool);
+-XNN_INIT_ONCE_GUARD(s8_maxpool);
+-XNN_INIT_ONCE_GUARD(u8_maxpool);
+ 
+ // Macros to log the microkernel names if and when they are registered.
+ #define XNN_INIT_MAXPOOL_UKERNEL(ukernel) \
+@@ -68,122 +62,6 @@ static void init_f16_maxpool_config(void) {
+   #endif
+ }
+ 
+-static void init_f32_maxpool_config(void) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__neon_u4);
+-      f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-    } else {
+-      f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__scalar_u1);
+-      f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__neon_u4);
+-    f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_SSE2
+-      if (hardware_config->arch_flags & xnn_arch_x86_sse2) {
+-        f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__sse2_u4);
+-        f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-      }
+-    #endif
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__wasmsimd_u4);
+-    f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-  #elif XNN_ARCH_RISCV && XNN_ENABLE_RISCV_VECTOR
+-    f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__rvv_u2v);
+-    f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-  #elif XNN_ARCH_HEXAGON && XNN_ENABLE_HVX
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    if (hardware_config->arch_flags & xnn_arch_hvx) {
+-      f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__hvx_u32);
+-      f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-    }
+-  #else
+-    f32_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_f32_maxpool_minmax_ukernel_9p__scalar_u1);
+-    f32_maxpool_config.init.f32 = xnn_init_f32_minmax_scalar_params;
+-  #endif
+-}
+-
+-static void init_s8_maxpool_config(void) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__neon_u16);
+-      s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-    } else {
+-      s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__scalar_u1);
+-      s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__neon_u16);
+-    s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_SSE41
+-      if (hardware_config->arch_flags & xnn_arch_x86_sse4_1) {
+-        s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__sse41_u16);
+-        s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-      } else
+-    #endif
+-    {
+-      s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__scalar_u1);
+-      s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-    }
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__wasmsimd_u16);
+-    s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-  #else
+-    s8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_s8_maxpool_minmax_ukernel_9p__scalar_u1);
+-    s8_maxpool_config.init.s8 = xnn_init_s8_minmax_scalar_params;
+-  #endif
+-}
+-
+-static void init_u8_maxpool_config(void) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__neon_u16);
+-      u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-    } else {
+-      u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__scalar_u1);
+-      u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__neon_u16);
+-    u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_SSE2
+-      if (hardware_config->arch_flags & xnn_arch_x86_sse2) {
+-        u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__sse2_u16);
+-        u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-      }
+-    #endif
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__wasmsimd_u16);
+-    u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-  #else
+-    u8_maxpool_config.ukernel = XNN_INIT_MAXPOOL_UKERNEL(xnn_u8_maxpool_minmax_ukernel_9p__scalar_u1);
+-    u8_maxpool_config.init.u8 = xnn_init_u8_minmax_scalar_params;
+-  #endif
+-}
+-
+ const struct xnn_maxpool_config* xnn_init_f16_maxpool_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+@@ -192,30 +70,3 @@ const struct xnn_maxpool_config* xnn_init_f16_maxpool_config() {
+   XNN_INIT_ONCE(f16_maxpool);
+   return &f16_maxpool_config;
+ }
+-
+-const struct xnn_maxpool_config* xnn_init_f32_maxpool_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f32_maxpool);
+-  return &f32_maxpool_config;
+-}
+-
+-const struct xnn_maxpool_config* xnn_init_s8_maxpool_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(s8_maxpool);
+-  return &s8_maxpool_config;
+-}
+-
+-const struct xnn_maxpool_config* xnn_init_u8_maxpool_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(u8_maxpool);
+-  return &u8_maxpool_config;
+-}
+diff --git a/sources/xnnpack/src/configs/unary-elementwise-config.c b/sources/xnnpack/src/configs/unary-elementwise-config.c
+index 9786f05..6d2bec2 100644
+--- a/sources/xnnpack/src/configs/unary-elementwise-config.c
++++ b/sources/xnnpack/src/configs/unary-elementwise-config.c
+@@ -24,12 +24,9 @@ static const int default_config = 0;
+ static const int consistent_config = 1;
+ 
+ static struct xnn_unary_elementwise_config f16_abs_config = {0};
+-static struct xnn_unary_elementwise_config f16_approxgelu_config = {0};
+ static struct xnn_unary_elementwise_config f16_clamp_config = {0};
+ static struct xnn_unary_elementwise_config f16_cosine_config = {0};
+-static struct xnn_unary_elementwise_config f16_elu_config = {0};
+ static struct xnn_unary_elementwise_config f16_exp_config = {0};
+-static struct xnn_unary_elementwise_config f16_gelu_config = {0};
+ static struct xnn_unary_elementwise_config f16_hswish_config = {0};
+ static struct xnn_unary_elementwise_config f16_lrelu_config = {0};
+ static struct xnn_unary_elementwise_config f16_neg_config = {0};
+@@ -47,14 +44,10 @@ static struct xnn_unary_elementwise_config f16_to_f32_cvt_config = {0};
+ static struct xnn_unary_elementwise_config f16_to_qs8_cvt_config = {0};
+ static struct xnn_unary_elementwise_config f16_to_qu8_cvt_config = {0};
+ static struct xnn_unary_elementwise_config f32_abs_config = {0};
+-static struct xnn_unary_elementwise_config f32_approxgelu_config[2] = {0};
+ static struct xnn_unary_elementwise_config f32_clamp_config = {0};
+ static struct xnn_unary_elementwise_config f32_cosine_config[2] = {0};
+-static struct xnn_unary_elementwise_config f32_elu_config = {0};
+ static struct xnn_unary_elementwise_config f32_exp_config[2] = {0};
+-static struct xnn_unary_elementwise_config f32_gelu_config[2] = {0};
+ static struct xnn_unary_elementwise_config f32_hswish_config[2] = {0};
+-static struct xnn_unary_elementwise_config f32_log_config[2] = {0};
+ static struct xnn_unary_elementwise_config f32_lrelu_config = {0};
+ static struct xnn_unary_elementwise_config f32_neg_config = {0};
+ static struct xnn_unary_elementwise_config f32_rndd_config = {0};
+@@ -84,12 +77,9 @@ static struct xnn_unary_elementwise_config xx_copy_config = {0};
+ 
+ 
+ XNN_INIT_ONCE_GUARD(f16_abs);
+-XNN_INIT_ONCE_GUARD(f16_approxgelu);
+ XNN_INIT_ONCE_GUARD(f16_clamp);
+ XNN_INIT_ONCE_GUARD(f16_cosine);
+-XNN_INIT_ONCE_GUARD(f16_elu);
+ XNN_INIT_ONCE_GUARD(f16_exp);
+-XNN_INIT_ONCE_GUARD(f16_gelu);
+ XNN_INIT_ONCE_GUARD(f16_hswish);
+ XNN_INIT_ONCE_GUARD(f16_lrelu);
+ XNN_INIT_ONCE_GUARD(f16_neg);
+@@ -107,14 +97,10 @@ XNN_INIT_ONCE_GUARD(f16_to_f32_cvt);
+ XNN_INIT_ONCE_GUARD(f16_to_qs8_cvt);
+ XNN_INIT_ONCE_GUARD(f16_to_qu8_cvt);
+ XNN_INIT_ONCE_GUARD(f32_abs);
+-XNN_INIT_ONCE_GUARD(f32_approxgelu);
+ XNN_INIT_ONCE_GUARD(f32_clamp);
+ XNN_INIT_ONCE_GUARD(f32_cosine);
+-XNN_INIT_ONCE_GUARD(f32_elu);
+ XNN_INIT_ONCE_GUARD(f32_exp);
+-XNN_INIT_ONCE_GUARD(f32_gelu);
+ XNN_INIT_ONCE_GUARD(f32_hswish);
+-XNN_INIT_ONCE_GUARD(f32_log);
+ XNN_INIT_ONCE_GUARD(f32_lrelu);
+ XNN_INIT_ONCE_GUARD(f32_neg);
+ XNN_INIT_ONCE_GUARD(f32_rndd);
+@@ -181,21 +167,6 @@ static void init_f16_abs_config(void) {
+   #endif
+ }
+ 
+-static void init_f16_approxgelu_config(void) {
+-#if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || \
+-    (XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64)
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  assert(hardware_config != NULL);
+-  if (hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith) {
+-    f16_approxgelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vapproxgelu_ukernel__neonfp16arith_rational_6_4_div_u16);
+-    f16_approxgelu_config.element_tile = 16;
+-  }
+-#else
+-  f16_approxgelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vapproxgelu_ukernel__scalar_rational_6_4_div_u4);
+-  f16_approxgelu_config.element_tile = 4;
+-#endif
+-}
+-
+ static void init_f16_clamp_config(void) {
+   #if XNN_ENABLE_ARM_FP16_SCALAR && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -249,39 +220,6 @@ static void init_f16_cosine_config(void) {
+ #endif
+ }
+ 
+-static void init_f16_elu_config(void) {
+-  #if XNN_ENABLE_ARM_FP16_SCALAR && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith) {
+-      f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__neonfp16arith_rr1_p3_u16);
+-      f16_elu_config.element_tile = 16;
+-      f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
+-    }
+-  #elif XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith) {
+-      f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__neonfp16arith_rr1_p3_u16);
+-      f16_elu_config.element_tile = 16;
+-      f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
+-    }
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_AVX2
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx2) {
+-        f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__avx2_rr1_p3_u16);
+-        f16_elu_config.element_tile = 16;
+-        f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
+-      }
+-    #endif
+-  #endif
+-}
+-
+ static void init_f16_exp_config(void) {
+ #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || \
+     (XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64)
+@@ -297,21 +235,6 @@ static void init_f16_exp_config(void) {
+ #endif
+ }
+ 
+-static void init_f16_gelu_config(void) {
+-#if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || \
+-    (XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64)
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  assert(hardware_config != NULL);
+-  if (hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith) {
+-    f16_gelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vgelu_ukernel__neonfp16arith_rational_6_4_div_u16);
+-    f16_gelu_config.element_tile = 16;
+-  }
+-#else
+-  f16_gelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vgelu_ukernel__scalar_rational_6_4_div_u4);
+-  f16_gelu_config.element_tile = 4;
+-#endif
+-}
+-
+ static void init_f16_hswish_config(void) {
+   #if XNN_ENABLE_ARM_FP16_SCALAR && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -866,82 +789,6 @@ static void init_f32_abs_config(void) {
+   #endif
+ }
+ 
+-static void init_f32_approxgelu_config_impl(struct xnn_unary_elementwise_config* config, bool consistent_arithmetic) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      if (hardware_config->arch_flags & xnn_arch_arm_neon_fma) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__neon_rational_12_10_div_u8);
+-        config->element_tile = 8;
+-      } else {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__neon_rational_12_10_div_u8);
+-        config->element_tile = 8;
+-      }
+-    } else {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__neon_rational_12_10_div_u8);
+-      config->element_tile = 8;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__neon_rational_12_10_div_u8);
+-    config->element_tile = 8;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_AVX512F
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx512f) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__avx512f_rational_12_10_div_u32);
+-        config->element_tile = 32;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_FMA3
+-      if (hardware_config->arch_flags & xnn_arch_x86_fma3) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__fma3_rational_12_10_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_AVX
+-      if (!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__avx_rational_12_10_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_SSE2
+-      if (!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__sse2_rational_12_10_div_u12);
+-          config->element_tile = 12;
+-      } else if (consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__sse2fma_rational_12_10_div_u8);
+-          config->element_tile = 8;
+-      } else
+-    #endif
+-    {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__scalar_rational_12_10_div_u1);
+-      config->element_tile = 1;
+-    }
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__wasmsimd_rational_12_10_div_u12);
+-    config->element_tile = 12;
+-  #elif XNN_ARCH_HEXAGON && XNN_ENABLE_HVX
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    if (hardware_config->arch_flags & xnn_arch_hvx) {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__hvx_rational_12_10_div_u128);
+-      config->element_tile = 128;
+-    }
+-  #else
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__scalar_rational_12_10_div_u1);
+-    config->element_tile = 1;
+-  #endif
+-}
+-
+-static void init_f32_approxgelu_config() {
+-  init_f32_approxgelu_config_impl(&f32_approxgelu_config[default_config], false);
+-  init_f32_approxgelu_config_impl(&f32_approxgelu_config[consistent_config], true);
+-}
+-
+ static void init_f32_clamp_config(void) {
+   #if XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -1098,173 +945,6 @@ static void init_f32_cosine_config() {
+   init_f32_cosine_config_impl(&f32_cosine_config[consistent_config], true);
+ }
+ 
+-static void init_f32_elu_config(void) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      if (hardware_config->arch_flags & xnn_arch_arm_neon_fma) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__neonfma_rr1_p6_u8);
+-        f32_elu_config.element_tile = 8;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__neon_rr2_lut16_p3_u8);
+-        f32_elu_config.element_tile = 8;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      }
+-    } else {
+-      f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__scalar_rr2_lut16_p3_u4);
+-      f32_elu_config.element_tile = 4;
+-      f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__neonfma_rr1_lut16_p3_u16);
+-    f32_elu_config.element_tile = 16;
+-    f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_AVX512F
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx512f) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx512f_rr1_p6_u64);
+-        f32_elu_config.element_tile = 64;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_AVX2
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx2) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx2_rr1_lut4_p4_perm_u32);
+-        f32_elu_config.element_tile = 32;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_AVX
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx_rr2_lut4_p4_perm_u32);
+-        f32_elu_config.element_tile = 32;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_SSE2
+-      if (hardware_config->arch_flags & xnn_arch_x86_sse2) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__sse2_rr2_lut16_p3_u12);
+-        f32_elu_config.element_tile = 12;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else
+-    #endif
+-    {
+-      f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__scalar_rr2_lut16_p3_u4);
+-      f32_elu_config.element_tile = 4;
+-      f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-    }
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    #if XNN_ARCH_WASMRELAXEDSIMD
+-      f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__wasmrelaxedsimd_fma_rr2_p6_u16);
+-      f32_elu_config.element_tile = 16;
+-      f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-    #else
+-      const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-      assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-      if (hardware_config->is_x86) {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__wasmsimd_x86_rr2_p6_u16);
+-        f32_elu_config.element_tile = 16;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      } else {
+-        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__wasmsimd_arm_rr2_p6_u16);
+-        f32_elu_config.element_tile = 16;
+-        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-      }
+-    #endif
+-  #elif XNN_ARCH_RISCV
+-    f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__scalar_rr2_lut16_p3_u4);
+-    f32_elu_config.element_tile = 4;
+-    f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-  #else
+-    f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__scalar_rr2_lut16_p3_u4);
+-    f32_elu_config.element_tile = 4;
+-    f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+-  #endif
+-}
+-
+-static void init_f32_gelu_config_impl(struct xnn_unary_elementwise_config* config, bool consistent_arithmetic) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      if (hardware_config->arch_flags & xnn_arch_arm_neon_fma) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__neon_rational_12_10_div_u8);
+-        config->element_tile = 8;
+-      } else {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__neon_rational_12_10_div_u8);
+-        config->element_tile = 8;
+-      }
+-    } else {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__neon_rational_12_10_div_u8);
+-      config->element_tile = 8;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__neon_rational_12_10_div_u8);
+-    config->element_tile = 8;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_AVX512F
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx512f) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__avx512f_rational_12_10_div_u32);
+-        config->element_tile = 32;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_FMA3
+-      if (hardware_config->arch_flags & xnn_arch_x86_fma3) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__fma3_rational_12_10_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_AVX
+-      if (!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__avx_rational_12_10_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_SSE2
+-      if (!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__sse2_rational_12_10_div_u12);
+-          config->element_tile = 12;
+-      } else if (consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__sse2fma_rational_12_10_div_u8);
+-          config->element_tile = 8;
+-      } else
+-    #endif
+-    {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__scalar_rational_12_10_div_u1);
+-      config->element_tile = 1;
+-    }
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__wasmsimd_rational_12_10_div_u12);
+-    config->element_tile = 12;
+-  #elif XNN_ARCH_HEXAGON && XNN_ENABLE_HVX
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    if (hardware_config->arch_flags & xnn_arch_hvx) {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__hvx_rational_12_10_div_u128);
+-      config->element_tile = 128;
+-    }
+-  #else
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__scalar_rational_12_10_div_u1);
+-    config->element_tile = 1;
+-  #endif
+-}
+-
+-static void init_f32_gelu_config() {
+-  init_f32_gelu_config_impl(&f32_gelu_config[default_config], false);
+-  init_f32_gelu_config_impl(&f32_gelu_config[consistent_config], true);
+-}
+-
+ static void init_f32_hswish_config_impl(struct xnn_unary_elementwise_config* config, bool consistent_arithmetic) {
+   #if XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -1414,77 +1094,6 @@ static void init_f32_exp_config() {
+   init_f32_exp_config_impl(&f32_exp_config[consistent_config], true);
+ }
+ 
+-static void init_f32_log_config_impl(struct xnn_unary_elementwise_config* config, bool consistent_arithmetic) {
+-  #if XNN_ARCH_ARM
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    if (hardware_config->arch_flags & xnn_arch_arm_neon) {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__neon_rational_3_3_div_u8);
+-      config->element_tile = 8;
+-    } else {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__scalar_rational_3_3_div_u1);
+-      config->element_tile = 1;
+-    }
+-  #elif XNN_ARCH_ARM64
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__neon_rational_3_3_div_u8);
+-    config->element_tile = 8;
+-  #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    (void) hardware_config;  // May be unused.
+-    #if XNN_ENABLE_AVX512F
+-      if (hardware_config->arch_flags & xnn_arch_x86_avx512f) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__avx512f_rational_3_3_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_FMA3
+-      if (hardware_config->arch_flags & xnn_arch_x86_fma3) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__fma3_rational_3_3_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_AVX2
+-      if (!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx2) {
+-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__avx2_rational_3_3_div_u16);
+-        config->element_tile = 16;
+-      } else
+-    #endif
+-    #if XNN_ENABLE_SSE2
+-      if (!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__sse2_rational_3_3_div_u8);
+-          config->element_tile = 8;
+-      } else if (consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_sse2)) {
+-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__sse2fma_rational_3_3_div_u8);
+-          config->element_tile = 8;
+-      } else
+-    #endif
+-    {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__scalar_rational_3_3_div_u1);
+-      config->element_tile = 1;
+-    }
+-  #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__wasmsimd_rational_3_3_div_u8);
+-    config->element_tile = 8;
+-  #elif XNN_ARCH_HEXAGON && XNN_ENABLE_HVX
+-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-    assert(hardware_config != NULL);
+-    if (hardware_config->arch_flags & xnn_arch_hvx) {
+-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__hvx_rational_3_3_div_u128);
+-      config->element_tile = 128;
+-    }
+-  #else
+-    config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__scalar_rational_3_3_div_u1);
+-    config->element_tile = 1;
+-  #endif
+-}
+-
+-static void init_f32_log_config() {
+-  init_f32_log_config_impl(&f32_log_config[default_config], false);
+-  init_f32_log_config_impl(&f32_log_config[consistent_config], true);
+-}
+-
+ static void init_f32_lrelu_config(void) {
+   #if XNN_ARCH_ARM
+     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+@@ -3316,15 +2925,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f16_abs_config() {
+   return &f16_abs_config;
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f16_approxgelu_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f16_approxgelu);
+-  return &f16_approxgelu_config;
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f16_clamp_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+@@ -3343,15 +2943,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f16_cosine_config() {
+   return &f16_cosine_config;
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f16_elu_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f16_elu);
+-  return &f16_elu_config;
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f16_exp_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+@@ -3361,15 +2952,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f16_exp_config() {
+   return &f16_exp_config;
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f16_gelu_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f16_gelu);
+-  return &f16_gelu_config;
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f16_hswish_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL || !xnn_is_f16_compatible_config(hardware_config)) {
+@@ -3523,19 +3105,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f32_abs_config() {
+   return &f32_abs_config;
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f32_approxgelu_config(uint32_t flags) {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f32_approxgelu);
+-  if (flags & XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC) {
+-    return &f32_approxgelu_config[consistent_config];
+-  } else {
+-    return &f32_approxgelu_config[default_config];
+-  }
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f32_clamp_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+@@ -3545,15 +3114,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f32_clamp_config() {
+   return &f32_clamp_config;
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f32_elu_config() {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f32_elu);
+-  return &f32_elu_config;
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f32_exp_config(uint32_t flags) {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+@@ -3567,19 +3127,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f32_exp_config(uint32_t flag
+   }
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f32_gelu_config(uint32_t flags) {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f32_gelu);
+-  if (flags & XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC) {
+-    return &f32_gelu_config[consistent_config];
+-  } else {
+-    return &f32_gelu_config[default_config];
+-  }
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f32_hswish_config(uint32_t flags) {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+@@ -3593,19 +3140,6 @@ const struct xnn_unary_elementwise_config* xnn_init_f32_hswish_config(uint32_t f
+   }
+ }
+ 
+-const struct xnn_unary_elementwise_config* xnn_init_f32_log_config(uint32_t flags) {
+-  const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+-  if (hardware_config == NULL) {
+-    return NULL;
+-  }
+-  XNN_INIT_ONCE(f32_log);
+-  if (flags & XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC) {
+-    return &f32_log_config[consistent_config];
+-  } else {
+-    return &f32_log_config[default_config];
+-  }
+-}
+-
+ const struct xnn_unary_elementwise_config* xnn_init_f32_lrelu_config() {
+   const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+   if (hardware_config == NULL) {
+@@ -3870,4 +3404,3 @@ const struct xnn_unary_elementwise_config* xnn_init_xx_copy_config() {
+   XNN_INIT_ONCE(xx_copy);
+   return &xx_copy_config;
+ }
+-
+diff --git a/sources/xnnpack/src/microparams-init.c b/sources/xnnpack/src/microparams-init.c
+index d4162ff..8f8581f 100644
+--- a/sources/xnnpack/src/microparams-init.c
++++ b/sources/xnnpack/src/microparams-init.c
+@@ -624,32 +624,6 @@ size_t xnn_init_f32_qb4w_minmax_scalar_params(
+   return sizeof(params->scalar);
+ }
+ 
+-size_t xnn_init_f16_elu_scalar_params(
+-  union xnn_unary_uparams* params,
+-  const union xnn_unary_params* op_params,
+-  const struct xnn_quantization_params* input_quantization,
+-  const struct xnn_quantization_params* output_quantization)
+-{
+-  params->f16_elu.scalar.prescale = xnn_float16_from_float(1.0f);
+-  params->f16_elu.scalar.alpha = xnn_float16_from_float(op_params->elu.alpha);
+-  params->f16_elu.scalar.beta = xnn_float16_from_float(1.0f);
+-  return sizeof(params->f16_elu);
+-}
+-
+-
+-size_t xnn_init_f32_elu_scalar_params(
+-  union xnn_unary_uparams* params,
+-  const union xnn_unary_params* op_params,
+-  const struct xnn_quantization_params* input_quantization,
+-  const struct xnn_quantization_params* output_quantization)
+-{
+-  params->f32_elu.scalar.prescale = 1.0f;
+-  params->f32_elu.scalar.alpha = op_params->elu.alpha;
+-  params->f32_elu.scalar.beta = 1.0f;
+-  return sizeof(params->f32_elu);
+-}
+-
+-
+ size_t xnn_init_f16_lrelu_scalar_params(
+   union xnn_unary_uparams* params,
+   const union xnn_unary_params* op_params,
+diff --git a/sources/xnnpack/src/operators/max-pooling-nhwc.c b/sources/xnnpack/src/operators/max-pooling-nhwc.c
+index 4111d74..1046ba5 100644
+--- a/sources/xnnpack/src/operators/max-pooling-nhwc.c
++++ b/sources/xnnpack/src/operators/max-pooling-nhwc.c
+@@ -155,142 +155,6 @@ error:
+   return status;
+ }
+ 
+-enum xnn_status xnn_create_max_pooling2d_nhwc_s8(
+-    uint32_t input_padding_top,
+-    uint32_t input_padding_right,
+-    uint32_t input_padding_bottom,
+-    uint32_t input_padding_left,
+-    uint32_t pooling_height,
+-    uint32_t pooling_width,
+-    uint32_t stride_height,
+-    uint32_t stride_width,
+-    uint32_t dilation_height,
+-    uint32_t dilation_width,
+-    int8_t output_min,
+-    int8_t output_max,
+-    uint32_t flags,
+-    xnn_operator_t* max_pooling_op_out)
+-{
+-  if (output_min > output_max) {
+-    xnn_log_error(
+-      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: lower bound must be less than or equal to upper bound",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_s8), output_min, output_max);
+-    return xnn_status_invalid_parameter;
+-  }
+-
+-  const struct xnn_maxpool_config* maxpool_config = xnn_init_s8_maxpool_config();
+-  assert(maxpool_config != NULL);
+-  struct xnn_s8_minmax_params params;
+-  maxpool_config->init.s8(&params, output_min, output_max);
+-  return create_max_pooling2d_nhwc(
+-    input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
+-    pooling_height, pooling_width,
+-    stride_height, stride_width,
+-    dilation_height, dilation_width,
+-    flags,
+-    &params, sizeof(params),
+-    maxpool_config,
+-    xnn_operator_type_max_pooling_nhwc_s8,
+-    max_pooling_op_out);
+-}
+-
+-enum xnn_status xnn_create_max_pooling2d_nhwc_u8(
+-    uint32_t input_padding_top,
+-    uint32_t input_padding_right,
+-    uint32_t input_padding_bottom,
+-    uint32_t input_padding_left,
+-    uint32_t pooling_height,
+-    uint32_t pooling_width,
+-    uint32_t stride_height,
+-    uint32_t stride_width,
+-    uint32_t dilation_height,
+-    uint32_t dilation_width,
+-    uint8_t output_min,
+-    uint8_t output_max,
+-    uint32_t flags,
+-    xnn_operator_t* max_pooling_op_out)
+-{
+-  if (output_min > output_max) {
+-    xnn_log_error(
+-      "failed to create %s operator with [%" PRIu8 ", %" PRIu8 "] output range: lower bound must be less than or equal to upper bound",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_u8), output_min, output_max);
+-    return xnn_status_invalid_parameter;
+-  }
+-
+-  const struct xnn_maxpool_config* maxpool_config = xnn_init_u8_maxpool_config();
+-  assert(maxpool_config != NULL);
+-  struct xnn_u8_minmax_params params;
+-  maxpool_config->init.u8(&params, output_min, output_max);
+-  return create_max_pooling2d_nhwc(
+-    input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
+-    pooling_height, pooling_width,
+-    stride_height, stride_width,
+-    dilation_height, dilation_width,
+-    flags,
+-    &params, sizeof(params),
+-    maxpool_config,
+-    xnn_operator_type_max_pooling_nhwc_u8,
+-    max_pooling_op_out);
+-}
+-
+-enum xnn_status xnn_create_max_pooling2d_nhwc_f32(
+-    uint32_t input_padding_top,
+-    uint32_t input_padding_right,
+-    uint32_t input_padding_bottom,
+-    uint32_t input_padding_left,
+-    uint32_t pooling_height,
+-    uint32_t pooling_width,
+-    uint32_t stride_height,
+-    uint32_t stride_width,
+-    uint32_t dilation_height,
+-    uint32_t dilation_width,
+-    float output_min,
+-    float output_max,
+-    uint32_t flags,
+-    xnn_operator_t* max_pooling_op_out)
+-{
+-  if (isnan(output_min)) {
+-    xnn_log_error(
+-      "failed to create %s with NaN output lower bound: lower bound must be non-NaN",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32));
+-    return xnn_status_invalid_parameter;
+-  }
+-
+-  if (isnan(output_max)) {
+-    xnn_log_error(
+-      "failed to create %s with NaN output upper bound: upper bound must be non-NaN",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32));
+-    return xnn_status_invalid_parameter;
+-  }
+-
+-  if (output_min > output_max) {
+-    xnn_log_error(
+-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32), output_min, output_max);
+-    return xnn_status_invalid_parameter;
+-  }
+-
+-  const struct xnn_maxpool_config* maxpool_config = xnn_init_f32_maxpool_config();
+-  if (maxpool_config == NULL) {
+-    xnn_log_error(
+-      "failed to create %s operator: unsupported hardware configuration",
+-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32));
+-    return xnn_status_unsupported_hardware;
+-  }
+-  struct xnn_f32_minmax_params params;
+-  maxpool_config->init.f32(&params, output_min, output_max);
+-  return create_max_pooling2d_nhwc(
+-    input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
+-    pooling_height, pooling_width,
+-    stride_height, stride_width,
+-    dilation_height, dilation_width,
+-    flags,
+-    &params, sizeof(params),
+-    maxpool_config,
+-    xnn_operator_type_max_pooling_nhwc_f32,
+-    max_pooling_op_out);
+-}
+-
+ enum xnn_status xnn_create_max_pooling2d_nhwc_f16(
+     uint32_t input_padding_top,
+     uint32_t input_padding_right,
+@@ -548,54 +412,6 @@ static enum xnn_status reshape_max_pooling2d_nhwc(
+   return xnn_status_success;
+ }
+ 
+-enum xnn_status xnn_reshape_max_pooling2d_nhwc_s8(
+-  xnn_operator_t max_pooling_op,
+-  size_t batch_size,
+-  size_t input_height,
+-  size_t input_width,
+-  size_t channels,
+-  size_t input_pixel_stride,
+-  size_t output_pixel_stride,
+-  size_t* output_height_out,
+-  size_t* output_width_out,
+-  pthreadpool_t threadpool)
+-{
+-  return reshape_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_s8,
+-    batch_size, input_height, input_width,
+-    channels, input_pixel_stride, output_pixel_stride,
+-    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+-    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+-    max_pooling_op->maxpool_config,
+-    &max_pooling_op->params.s8_minmax, sizeof(max_pooling_op->params.s8_minmax),
+-    output_height_out, output_width_out,
+-    threadpool);
+-}
+-
+-enum xnn_status xnn_reshape_max_pooling2d_nhwc_u8(
+-  xnn_operator_t max_pooling_op,
+-  size_t batch_size,
+-  size_t input_height,
+-  size_t input_width,
+-  size_t channels,
+-  size_t input_pixel_stride,
+-  size_t output_pixel_stride,
+-  size_t* output_height_out,
+-  size_t* output_width_out,
+-  pthreadpool_t threadpool)
+-{
+-  return reshape_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_u8,
+-    batch_size, input_height, input_width,
+-    channels, input_pixel_stride, output_pixel_stride,
+-    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
+-    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
+-    max_pooling_op->maxpool_config,
+-    &max_pooling_op->params.u8_minmax, sizeof(max_pooling_op->params.u8_minmax),
+-    output_height_out, output_width_out,
+-    threadpool);
+-}
+-
+ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f16(
+   xnn_operator_t max_pooling_op,
+   size_t batch_size,
+@@ -620,30 +436,6 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f16(
+     threadpool);
+ }
+ 
+-enum xnn_status xnn_reshape_max_pooling2d_nhwc_f32(
+-  xnn_operator_t max_pooling_op,
+-  size_t batch_size,
+-  size_t input_height,
+-  size_t input_width,
+-  size_t channels,
+-  size_t input_pixel_stride,
+-  size_t output_pixel_stride,
+-  size_t* output_height_out,
+-  size_t* output_width_out,
+-  pthreadpool_t threadpool)
+-{
+-  return reshape_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_f32,
+-    batch_size, input_height, input_width,
+-    channels, input_pixel_stride, output_pixel_stride,
+-    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+-    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+-    max_pooling_op->maxpool_config,
+-    &max_pooling_op->params.f32_minmax, sizeof(max_pooling_op->params.f32_minmax),
+-    output_height_out, output_width_out,
+-    threadpool);
+-}
+-
+ static enum xnn_status setup_max_pooling2d_nhwc(
+   xnn_operator_t max_pooling_op,
+   enum xnn_operator_type expected_operator_type,
+@@ -682,26 +474,6 @@ static enum xnn_status setup_max_pooling2d_nhwc(
+   return xnn_status_success;
+ }
+ 
+-enum xnn_status xnn_setup_max_pooling2d_nhwc_s8(
+-    xnn_operator_t max_pooling_op,
+-    const int8_t* input,
+-    int8_t* output)
+-{
+-  return setup_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_s8,
+-    input, output);
+-}
+-
+-enum xnn_status xnn_setup_max_pooling2d_nhwc_u8(
+-    xnn_operator_t max_pooling_op,
+-    const uint8_t* input,
+-    uint8_t* output)
+-{
+-  return setup_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_u8,
+-    input, output);
+-}
+-
+ enum xnn_status xnn_setup_max_pooling2d_nhwc_f16(
+     xnn_operator_t max_pooling_op,
+     const void* input,
+@@ -711,13 +483,3 @@ enum xnn_status xnn_setup_max_pooling2d_nhwc_f16(
+     max_pooling_op, xnn_operator_type_max_pooling_nhwc_f16,
+     input, output);
+ }
+-
+-enum xnn_status xnn_setup_max_pooling2d_nhwc_f32(
+-    xnn_operator_t max_pooling_op,
+-    const float* input,
+-    float* output)
+-{
+-  return setup_max_pooling2d_nhwc(
+-    max_pooling_op, xnn_operator_type_max_pooling_nhwc_f32,
+-    input, output);
+-}
+diff --git a/sources/xnnpack/src/operators/unary-elementwise-nc.c b/sources/xnnpack/src/operators/unary-elementwise-nc.c
+index 67bc987..a368597 100644
+--- a/sources/xnnpack/src/operators/unary-elementwise-nc.c
++++ b/sources/xnnpack/src/operators/unary-elementwise-nc.c
+@@ -152,8 +152,6 @@ static const struct xnn_unary_elementwise_config* get_config(
+     switch (op_type) {
+       case xnn_unary_abs:
+         return xnn_init_f16_abs_config();
+-      case xnn_unary_approxgelu:
+-        return xnn_init_f16_approxgelu_config();
+       case xnn_unary_bankers_rounding:
+         return xnn_init_f16_rndne_config();
+       case xnn_unary_ceiling:
+@@ -162,12 +160,8 @@ static const struct xnn_unary_elementwise_config* get_config(
+         return xnn_init_f16_clamp_config();
+       case xnn_unary_cosine:
+         return xnn_init_f16_cosine_config();
+-      case xnn_unary_elu:
+-        return xnn_init_f16_elu_config();
+       case xnn_unary_exp:
+         return xnn_init_f16_exp_config();
+-      case xnn_unary_gelu:
+-        return xnn_init_f16_gelu_config();
+       case xnn_unary_floor:
+         return xnn_init_f16_rndd_config();
+       case xnn_unary_hardswish:
+@@ -195,8 +189,6 @@ static const struct xnn_unary_elementwise_config* get_config(
+     switch (op_type) {
+       case xnn_unary_abs:
+         return xnn_init_f32_abs_config();
+-      case xnn_unary_approxgelu:
+-        return xnn_init_f32_approxgelu_config(flags);
+       case xnn_unary_bankers_rounding:
+         return xnn_init_f32_rndne_config();
+       case xnn_unary_ceiling:
+@@ -205,20 +197,14 @@ static const struct xnn_unary_elementwise_config* get_config(
+         return xnn_init_f32_clamp_config();
+       case xnn_unary_cosine:
+         return xnn_init_f32_cosine_config(flags);
+-      case xnn_unary_elu:
+-        return xnn_init_f32_elu_config();
+       case xnn_unary_exp:
+         return xnn_init_f32_exp_config(flags);
+       case xnn_unary_floor:
+         return xnn_init_f32_rndd_config();
+-      case xnn_unary_gelu:
+-        return xnn_init_f32_gelu_config(flags);
+       case xnn_unary_hardswish:
+         return xnn_init_f32_hswish_config(flags);
+       case xnn_unary_leaky_relu:
+         return xnn_init_f32_lrelu_config();
+-      case xnn_unary_log:
+-        return xnn_init_f32_log_config(flags);
+       case xnn_unary_negate:
+         return xnn_init_f32_neg_config();
+       case xnn_unary_reciprocal_square_root:
+diff --git a/sources/xnnpack/src/xnnpack/config.h b/sources/xnnpack/src/xnnpack/config.h
+index f135c65..8faa0c9 100644
+--- a/sources/xnnpack/src/xnnpack/config.h
++++ b/sources/xnnpack/src/xnnpack/config.h
+@@ -85,18 +85,12 @@ xnn_init_qu8_vprelu_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_abs_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f16_approxgelu_config();
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_clamp_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_cosine_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f16_elu_config();
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_exp_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f16_gelu_config();
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_hswish_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f16_lrelu_config();
+@@ -133,21 +127,13 @@ xnn_init_f16_to_qu8_cvt_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_abs_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f32_approxgelu_config(uint32_t flags);
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_clamp_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_cosine_config(uint32_t flags);
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f32_elu_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_exp_config(
+     uint32_t flags);
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+-xnn_init_f32_gelu_config(uint32_t flags);
+-XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_hswish_config(uint32_t flags);
+-XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_log_config(
+-    uint32_t flags);
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+ xnn_init_f32_lrelu_config();
+ XNN_INTERNAL const struct xnn_unary_elementwise_config*
+diff --git a/sources/xnnpack/src/xnnpack/maxpool.h b/sources/xnnpack/src/xnnpack/maxpool.h
+index 1089647..2b85dcd 100644
+--- a/sources/xnnpack/src/xnnpack/maxpool.h
++++ b/sources/xnnpack/src/xnnpack/maxpool.h
+@@ -28,9 +28,6 @@ extern "C" {
+       const params_type* params);
+ 
+ #include "src/f16-maxpool/f16-maxpool-minmax.inc"
+-#include "src/f32-maxpool/f32-maxpool-minmax.inc"
+-#include "src/s8-maxpool/s8-maxpool-minmax.inc"
+-#include "src/u8-maxpool/u8-maxpool-minmax.inc"
+ 
+ #undef XNN_UKERNEL
+ 
+diff --git a/sources/xnnpack/src/xnnpack/microparams-init.h b/sources/xnnpack/src/xnnpack/microparams-init.h
+index b2cbae3..5d71967 100644
+--- a/sources/xnnpack/src/xnnpack/microparams-init.h
++++ b/sources/xnnpack/src/xnnpack/microparams-init.h
+@@ -181,8 +181,6 @@ XNN_INTERNAL size_t xnn_init_f32_qb4w_minmax_scalar_params(
+       const struct xnn_quantization_params* input_quantization, \
+       const struct xnn_quantization_params* output_quantization);
+ 
+-DECLARE_INIT_UNARY_MICROPARAMS_FUNCTION(xnn_init_f16_elu_scalar_params);
+-DECLARE_INIT_UNARY_MICROPARAMS_FUNCTION(xnn_init_f32_elu_scalar_params);
+ DECLARE_INIT_UNARY_MICROPARAMS_FUNCTION(xnn_init_f16_lrelu_scalar_params);
+ DECLARE_INIT_UNARY_MICROPARAMS_FUNCTION(xnn_init_f32_lrelu_scalar_params);
+ DECLARE_INIT_UNARY_MICROPARAMS_FUNCTION(xnn_init_qs8_lrelu_scalar_params);
+diff --git a/sources/xnnpack/src/xnnpack/vunary.h b/sources/xnnpack/src/xnnpack/vunary.h
+index 2775d0a..c1ff953 100644
+--- a/sources/xnnpack/src/xnnpack/vunary.h
++++ b/sources/xnnpack/src/xnnpack/vunary.h
+@@ -47,12 +47,9 @@ extern "C" {
+                     params_type, init_params)                               \
+   DECLARE_F16_UKERNEL_FUNCTION(fn_name, params_type);
+ #include "src/f16-vabs/f16-vabs.inc"
+-#include "src/f16-vapproxgelu/f16-vapproxgelu.inc"
+ #include "src/f16-vclamp/f16-vclamp.inc"
+ #include "src/f16-vcos/f16-vcos.inc"
+-#include "src/f16-velu/f16-velu.inc"
+ #include "src/f16-vexp/f16-vexp.inc"
+-#include "src/f16-vgelu/f16-vgelu.inc"
+ #include "src/f16-vhswish/f16-vhswish.inc"
+ #include "src/f16-vlrelu/f16-vlrelu.inc"
+ #include "src/f16-vneg/f16-vneg.inc"
+@@ -73,14 +70,10 @@ extern "C" {
+                     params_type, init_params)                               \
+   DECLARE_F32_UKERNEL_FUNCTION(fn_name, params_type);
+ #include "src/f32-vabs/f32-vabs.inc"
+-#include "src/f32-vapproxgelu/f32-vapproxgelu.inc"
+ #include "src/f32-vclamp/f32-vclamp.inc"
+ #include "src/f32-vcos/f32-vcos.inc"
+-#include "src/f32-velu/f32-velu.inc"
+ #include "src/f32-vexp/f32-vexp.inc"
+-#include "src/f32-vgelu/f32-vgelu.inc"
+ #include "src/f32-vhswish/f32-vhswish.inc"
+-#include "src/f32-vlog/f32-vlog.inc"
+ #include "src/f32-vlrelu/f32-vlrelu.inc"
+ #include "src/f32-vneg/f32-vneg.inc"
+ #include "src/f32-vrnd/f32-vrndd.inc"
