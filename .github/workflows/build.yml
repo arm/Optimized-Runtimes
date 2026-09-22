@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - hilaus/yolo26n-minimal
+      - main
 
 permissions:
   # The build reads the checkout and does not modify GitHub state.
@@ -30,7 +30,7 @@ jobs:
             python3 \
             python3-venv
           rm -rf /var/lib/apt/lists/*
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Configure container workspace ownership

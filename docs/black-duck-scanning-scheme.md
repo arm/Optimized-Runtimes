@@ -194,19 +194,42 @@ that the aggregate BOM concealed:
 These are issues to resolve in the individual closures. They are not reasons to
 return to a combined BOM.
 
-## Future public-repository automation
+## GitHub Actions automation
 
-When the project moves to its public GitHub repository, Black Duck scanning
-will run directly from GitHub Actions rather than from an internal mirror. This
-is the intended future workflow; it is not implemented in this repository.
+The public-repository workflow is implemented in
+`.github/workflows/blackduck.yml`. It runs the four closure scans after every
+push to `main` and can also be started manually by a maintainer. The workflow
+does not run for pull requests, so code from an untrusted fork cannot receive
+Black Duck credentials.
+
+The workflow requires `BLACKDUCK_URL` as a repository or organization Actions
+variable and `BLACKDUCK_TOKEN` as a protected Actions secret. The optional
+`BLACKDUCK_PROJECT_NAME` variable overrides the existing `Loom` project name.
+Each scan uses the leading eight characters of the source revision, matching
+the established `<revision>-<closure>` version names and
+`loom-<closure>-<revision>` code-location names.
+
+Runtime sources are populated through the project-owned CMake configuration
+and scanned with signature license search, source upload disabled, and snippet
+matching disabled. The three Python closures use isolated environments and
+staged manifests so the native package inspector sees only the intended
+requirements. The build scan discovers the Python build-system requirement;
+the reviewed system-tool inventory remains manually maintained in Black Duck
+as described above because package inspection cannot infer host tools.
+
+After the first successful run, a Black Duck reviewer must establish the
+runtime subproject relationship in the examples, build, and Ultralytics
+versions and apply the component usages and Notices exclusions described in
+this document. Each new revision requires those server-side BOM decisions to
+be reviewed before its results can support a release.
 
 Two scanning paths will serve different purposes.
 
 ### Full repository scan after merge
 
-A full Black Duck scan will run automatically after changes are merged to
-`main`. It will provide ongoing dependency and software-composition-analysis
-coverage and supply the evidence used for release and SBOM work.
+A full Black Duck scan runs automatically after changes are merged to `main`.
+It provides ongoing dependency and software-composition-analysis coverage and
+supplies the evidence used for release and SBOM work.
 
 Black Duck credentials will be stored as protected GitHub Actions secrets. A
 workflow triggered by code from an untrusted fork must never receive those
