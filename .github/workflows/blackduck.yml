@@ -68,6 +68,8 @@ jobs:
 
       - name: Check out the trusted main revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure container workspace ownership
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -116,22 +118,16 @@ jobs:
               cp requirements.txt "$SCAN_DIRECTORY/requirements.txt"
               python3 -m venv build/blackduck/examples-venv
               build/blackduck/examples-venv/bin/python -m pip install \
+                --require-hashes \
                 --requirement requirements.txt
               echo "$GITHUB_WORKSPACE/build/blackduck/examples-venv/bin" >> "$GITHUB_PATH"
               ;;
             build)
               mkdir -p "$SCAN_DIRECTORY"
-              python3 - "$SCAN_DIRECTORY/requirements.txt" <<'PY'
-          import pathlib
-          import sys
-          import tomllib
-
-          configuration = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
-          requirements = configuration["build-system"]["requires"]
-          pathlib.Path(sys.argv[1]).write_text("\n".join(requirements) + "\n")
-          PY
+              cp requirements-build.txt "$SCAN_DIRECTORY/requirements.txt"
               python3 -m venv build/blackduck/build-venv
               build/blackduck/build-venv/bin/python -m pip install \
+                --require-hashes \
                 --requirement "$SCAN_DIRECTORY/requirements.txt"
               echo "$GITHUB_WORKSPACE/build/blackduck/build-venv/bin" >> "$GITHUB_PATH"
               ;;
@@ -142,6 +138,7 @@ jobs:
                 "$SCAN_DIRECTORY/benchmarks/ultralytics/requirements.txt"
               python3 -m venv build/blackduck/ultralytics-venv
               build/blackduck/ultralytics-venv/bin/python -m pip install \
+                --require-hashes \
                 --requirement benchmarks/ultralytics/requirements.txt
               echo "$GITHUB_WORKSPACE/build/blackduck/ultralytics-venv/bin" >> "$GITHUB_PATH"
               ;;
