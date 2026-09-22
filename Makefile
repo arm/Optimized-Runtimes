@@ -5,6 +5,7 @@ SHELL := /bin/bash
 ROOT := $(CURDIR)
 PYTHON ?= python3
 CLANG_FORMAT ?= clang-format
+LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
 VERSION := $(strip $(file <$(ROOT)/VERSION))
 
@@ -78,6 +79,9 @@ help:
 	  '  make runtime-package' \
 	  '      Produce CPack runtime and development archives under dist/packages/.' \
 	  '' \
+	  '  make requirements-lock' \
+	  '      Regenerate the hash-locked Python dependency closures.' \
+	  '' \
 	  'Examples and benchmarks:' \
 	  '  make examples' \
 	  '      Install dependencies in examples/.venv and prepare a runtime and model.' \
@@ -106,6 +110,25 @@ help:
 	  '' \
 	  '  make coverage CHECKPOINT=... MODELS=/model/320:/model/480:...' \
 	  '      Generate diagnostic Python and native coverage reports.'
+
+# Python dependencies
+.PHONY: requirements-lock
+requirements-lock:
+	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
+	  --generate-hashes --allow-unsafe --strip-extras \
+	  --output-file requirements.txt requirements/runtime.in
+	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
+	  --generate-hashes --allow-unsafe --strip-extras \
+	  --output-file requirements-build.txt requirements/build.in
+	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
+	  --generate-hashes --allow-unsafe --strip-extras \
+	  --output-file requirements-dev.txt requirements/dev.in
+	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
+	  --generate-hashes --allow-unsafe --strip-extras \
+	  --output-file requirements-lock.txt requirements/lock.in
+	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
+	  --generate-hashes --allow-unsafe --strip-extras \
+	  --output-file benchmarks/ultralytics/requirements.txt requirements/ultralytics.in
 
 # Checkpoint conversion
 .PHONY: model model-check
@@ -140,7 +163,10 @@ runtime-package: runtime
 examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin
 	@# Picamera2 is installed by Raspberry Pi OS, so camera examples must see system packages.
 	"$(PYTHON)" -m venv --system-site-packages "$(EXAMPLES_VENV)"
-	"$(EXAMPLES_PYTHON)" -m pip install "$(ROOT)"
+	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install --require-hashes \
+	  --requirement requirements-build.txt --requirement requirements.txt
+	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install \
+	  --no-deps --no-build-isolation "$(ROOT)"
 
 $(DEFAULT_CHECKPOINT):
 	mkdir -p "$(@D)"

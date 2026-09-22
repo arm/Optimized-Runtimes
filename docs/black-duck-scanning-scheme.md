@@ -81,8 +81,9 @@ The examples closure contains:
 - NumPy; and
 - OpenCV.
 
-Its package-manager scan uses only `requirements.txt`. It must not discover the
-development or Ultralytics requirements files by walking the repository.
+Its package-manager scan uses only the complete, hash-locked
+`requirements.txt`. It must not discover the development or Ultralytics locks
+by walking the repository.
 
 ### Build
 

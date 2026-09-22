@@ -18,9 +18,16 @@ if [[ ! -r /proc/device-tree/model ]] || ! grep -q 'Raspberry Pi 5' /proc/device
 fi
 
 python3 -m venv "$venv"
-"$venv/bin/python" -m pip install --upgrade pip
-"$venv/bin/python" -m pip install -r "$repo/benchmarks/ultralytics/requirements.txt"
-"$venv/bin/python" -m pip install "$repo"
+wheel_directory=$(mktemp -d)
+trap 'rm -rf "$wheel_directory"' EXIT
+PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install --require-hashes \
+  --requirement "$repo/requirements-build.txt"
+PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip wheel --no-deps --no-build-isolation \
+  --wheel-dir "$wheel_directory" "$repo"
+PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install --require-hashes \
+  --requirement "$repo/benchmarks/ultralytics/requirements.txt"
+PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install \
+  --no-deps "$wheel_directory"/arm_yolo26n-*.whl
 
 site=$("$venv/bin/python" - <<'PY'
 import site

@@ -1,0 +1,11 @@
+--index-url https://pypi.org/simple
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+numpy==2.2.4
+opencv-python-headless==5.0.0.93
+pillow==12.3.0
+PyYAML==6.0.3
+torch==2.12.1+cpu
+torchvision==0.27.1+cpu
+ultralytics==8.4.108
+ultralytics-thop==2.1.6

@@ -38,13 +38,19 @@ jobs:
       - name: Install development dependencies
         run: |
           python3 -m venv build/ci/venv
-          build/ci/venv/bin/python -m pip install --requirement requirements-dev.txt
+          PIP_CONFIG_FILE=/dev/null build/ci/venv/bin/python -m pip install --require-hashes \
+            --requirement requirements-dev.txt
       - name: Lint
         run: make lint PYTHON=build/ci/venv/bin/python CLANG_FORMAT=build/ci/venv/bin/clang-format
       - name: Unit tests
         run: make test-unit PYTHON=build/ci/venv/bin/python
       - name: Build Python package
-        run: build/ci/venv/bin/python -m pip wheel --no-deps --wheel-dir dist/packages .
+        run: |
+          python3 -m venv build/ci/package-venv
+          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip install \
+            --require-hashes --requirement requirements-build.txt
+          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip wheel \
+            --no-deps --no-build-isolation --wheel-dir dist/packages .
       - name: Download supported converter fixture
         run: |
           mkdir -p build/ci
