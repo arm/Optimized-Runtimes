@@ -52,22 +52,38 @@ def _build_artifact(directory: Path) -> None:
         )
 
 
-def test_candidate_command_assembles_the_tested_build_artifact(tmp_path: Path) -> None:
+def test_build_packages_are_promoted_without_repackaging(tmp_path: Path) -> None:
     inputs = tmp_path / "input"
     inputs.mkdir()
     _build_artifact(inputs)
-    outputs = tmp_path / "output"
+    packages = tmp_path / "packages"
     revision = "a" * 40
 
     subprocess.run(
         [
             sys.executable,
             "-m",
-            "internal.release.candidate",
+            "internal.release.distribution",
             "--input-dir",
             str(inputs),
             "--output-dir",
-            str(outputs),
+            str(packages),
+            "--version",
+            "0.1.0",
+        ],
+        check=True,
+    )
+    package_identities = {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in packages.iterdir()
+    }
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "internal.release.candidate",
+            "--package-dir",
+            str(packages),
             "--version",
             "0.1.0",
             "--revision",
@@ -82,22 +98,23 @@ def test_candidate_command_assembles_the_tested_build_artifact(tmp_path: Path) -
         check=True,
     )
 
-    distribution = outputs / "arm-yolo26n-0.1.0-rpi5-trixie-arm64.tar.gz"
+    distribution = packages / "arm-yolo26n-0.1.0-rpi5-trixie-arm64.tar.gz"
     with tarfile.open(distribution, "r:gz") as archive:
         names = set(archive.getnames())
     assert "lib/libarm-yolo26n.so.0" in names
     assert "python/arm_yolo26n-0.1.0-py3-none-any.whl" in names
     assert "share/doc/arm-yolo26n/licenses/xnnpack/LICENSE" in names
 
-    manifest_path = outputs / "arm-yolo26n-0.1.0-rpi5-trixie-arm64-candidate.json"
+    assert package_identities == {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in packages.iterdir()
+        if path.name in package_identities
+    }
+
+    manifest_path = packages / "arm-yolo26n-0.1.0-rpi5-trixie-arm64-candidate.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["source_revision"] == revision
-    assert [item["role"] for item in manifest["inputs"]] == [
-        "cpack-runtime",
-        "cpack-development",
-        "python-wheel",
-    ]
-    assert {item["role"] for item in manifest["outputs"]} == {
+    assert {item["role"] for item in manifest["files"]} == {
         "runnable-distribution",
         "runnable-distribution-checksum",
         "development-archive",

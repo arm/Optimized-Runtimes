@@ -64,6 +64,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Find successful build and Black Duck runs
+        id: find_runs
         run: |
           build="$(gh api --method GET \
             "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
@@ -88,10 +89,10 @@ jobs:
           }
 
           {
-            echo "BUILD_RUN_ID=$build_run_id"
-            echo "BUILD_RUN_URL=$build_run_url"
-            echo "BLACK_DUCK_RUN_URL=$black_duck_run_url"
-          } >> "$GITHUB_ENV"
+            echo "build_run_id=$build_run_id"
+            echo "build_run_url=$build_run_url"
+            echo "black_duck_run_url=$black_duck_run_url"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download retained build packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -100,13 +101,15 @@ jobs:
           path: build/release/input
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: ${{ env.BUILD_RUN_ID }}
+          run-id: ${{ steps.find_runs.outputs.build_run_id }}
 
-      - name: Assemble candidate files
+      - name: Record candidate evidence
+        env:
+          BUILD_RUN_URL: ${{ steps.find_runs.outputs.build_run_url }}
+          BLACK_DUCK_RUN_URL: ${{ steps.find_runs.outputs.black_duck_run_url }}
         run: |
           python3 -m internal.release.candidate \
-            --input-dir build/release/input \
-            --output-dir build/release/output \
+            --package-dir build/release/input \
             --version "$RELEASE_VERSION" \
             --revision "$RELEASE_REVISION" \
             --build-run-url "$BUILD_RUN_URL" \
@@ -114,6 +117,9 @@ jobs:
             --actor "$GITHUB_ACTOR"
 
       - name: Create draft release
+        env:
+          BUILD_RUN_URL: ${{ steps.find_runs.outputs.build_run_url }}
+          BLACK_DUCK_RUN_URL: ${{ steps.find_runs.outputs.black_duck_run_url }}
         run: |
           cat > build/release/notes.md <<EOF
           ## Raspberry Pi 5 release candidate
@@ -126,20 +132,29 @@ jobs:
 
           [Black Duck run]($BLACK_DUCK_RUN_URL)
 
-          Install the candidate in a clean qualification directory:
+          Stage the candidate in a clean qualification directory:
 
           ~~~sh
+          candidate="arm-yolo26n-$RELEASE_VERSION-candidate"
+          mkdir "\$candidate"
           tar --extract --gzip \
-            --file arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz
+            --file arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz \
+            --directory "\$candidate"
+          runtime="\$candidate/lib/libarm-yolo26n.so.0"
+          test -r "\$runtime"
           python3 -m venv .venv
           .venv/bin/python -m pip install \
-            python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl
+            "\$candidate/python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl"
           ~~~
+
+          The native library is staged rather than installed system-wide. Pass
+          the value of \`runtime\` to the Python API's \`runtime\` argument or an
+          example's \`--runtime\` option.
 
           This draft must not be published until the exact attached files have
           completed Raspberry Pi 5 qualification and human review.
           EOF
-          gh release create "v$RELEASE_VERSION" build/release/output/* \
+          gh release create "v$RELEASE_VERSION" build/release/input/* \
             --draft \
             --target "$RELEASE_REVISION" \
             --title "Arm Runtime for YOLO26n $RELEASE_VERSION" \

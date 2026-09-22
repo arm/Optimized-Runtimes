@@ -31,7 +31,7 @@ own runtime.
 
 | File | Owner | Contents |
 | --- | --- | --- |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | Release assembly from CMake and Python outputs | Ready-to-run native installation, Python wheel, project license, and third-party licenses |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | Main build assembly from CMake and Python outputs | Ready-to-run native installation, Python wheel, project license, and third-party licenses |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | CMake and CPack | Optional C header and unversioned linker name for C or C++ development |
 | `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
 
@@ -64,26 +64,26 @@ does not repeat an unchanged scan.
 A separate, manually triggered GitHub Actions workflow operates on the current
 `main` commit and reads its version from `VERSION`. The ordinary `main` build
 remains the only build: it has already run the tests, built the Python wheel,
-and had CMake and CPack produce the runtime and development archives. Candidate
-construction:
+had CMake and CPack produce the runtime and development components, and
+assembled the final distribution. Candidate construction:
 
-1. verifies the selected commit and version;
+1. verifies the current `main` commit and its version;
 2. requires a successful build and successful Black Duck run for that exact
    commit, plus the maintainer's confirmation that the Black Duck result was
    reviewed;
 3. downloads the retained `main-build-<commit>` artifact without rebuilding;
-4. verifies the CPack checksums, expected installed files, and wheel version;
-5. assembles the runtime component and unchanged wheel into the platform-named
-   prebuilt distribution;
-6. generates SHA-256 checksums and a manifest identifying the source commit,
-   workflow runs, build inputs, and candidate outputs; and
-7. creates one draft GitHub release targeting that commit.
+4. verifies the final distribution checksums and expected native, Python, and
+   license files;
+5. adds a manifest identifying the source commit, workflow runs, and unchanged
+   distribution files; and
+6. creates one draft GitHub release targeting that commit.
 
-Release assembly does not introduce another native or Python packager and does
-not alter the outputs produced by those owners. It combines their tested files
-into the single platform distribution users need. The workflow uses the
-`release-candidate` GitHub environment so repository administrators can add
-required reviewers before granting permission to create a draft release.
+The build's release-assembly step does not introduce another native or Python
+packager. It combines the files produced by those owners into the single
+platform distribution users need. The candidate workflow only verifies and
+annotates those retained bytes. It uses the `release-candidate` GitHub
+environment so repository administrators can add required reviewers before
+granting permission to create a draft release.
 
 To construct a candidate, open **Actions → Release candidate → Run workflow**,
 select `main`, and confirm Black Duck review only after inspecting that
@@ -100,12 +100,11 @@ platforms and then delegates signing and Artifactory publication. This project
 instead promotes its already-tested, fixed-platform `main` packages and creates
 a draft because Raspberry Pi qualification must occur before publication.
 
-Successful builds triggered by a push to `main` retain the unassembled CPack
-archives, checksums, and Python wheel for 30 days under an artifact named
-`main-build-<commit>`. These files make an ordinary merged build available for
-testing and diagnosis. They are not release candidates: candidate construction
-still verifies the version, assembles the supported distribution, records its
-source commit and checksums, and creates the draft release used by qualification.
+Successful builds triggered by a push to `main` retain the final runtime and
+development distributions and their checksums for 30 days under an artifact
+named `main-build-<commit>`. Candidate construction verifies those files,
+records their source commit and workflow evidence, and promotes the unchanged
+bytes into the draft release used by qualification.
 
 ## Raspberry Pi qualification
 
