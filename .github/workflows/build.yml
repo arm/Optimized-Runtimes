@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - hilaus/yolo26n-minimal
+      - main
 
 permissions:
   # The build reads the checkout and does not modify GitHub state.
