@@ -7,6 +7,7 @@ on:
       - hilaus/yolo26n-minimal
 
 permissions:
+  # The build reads the checkout and does not modify GitHub state.
   contents: read
 
 jobs:
@@ -29,19 +30,27 @@ jobs:
             python3 \
             python3-venv
           rm -rf /var/lib/apt/lists/*
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Configure container workspace ownership
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Install development dependencies
         run: |
           python3 -m venv build/ci/venv
-          build/ci/venv/bin/python -m pip install --requirement requirements-dev.txt
+          PIP_CONFIG_FILE=/dev/null build/ci/venv/bin/python -m pip install --require-hashes \
+            --requirement requirements-dev.txt
       - name: Lint
         run: make lint PYTHON=build/ci/venv/bin/python CLANG_FORMAT=build/ci/venv/bin/clang-format
       - name: Unit tests
         run: make test-unit PYTHON=build/ci/venv/bin/python
       - name: Build Python package
-        run: build/ci/venv/bin/python -m pip wheel --no-deps --wheel-dir dist/packages .
+        run: |
+          python3 -m venv build/ci/package-venv
+          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip install \
+            --require-hashes --requirement requirements-build.txt
+          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip wheel \
+            --no-deps --no-build-isolation --wheel-dir dist/packages .
       - name: Download supported converter fixture
         run: |
           mkdir -p build/ci

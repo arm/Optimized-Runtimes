@@ -87,17 +87,25 @@ filesystem cache was approximately 6.58 GB.
 
 1. Run the documented Black Duck closures and require review of relevant
    findings before publication.
-2. Pin executable workflow inputs, retain least-privilege permissions, and
-   record the build environment used for release artifacts.
-3. Define reproducible Python dependency sets for each supported environment
-   without hiding operating-system packages required by workflows such as
-   Picamera2.
-4. Publish a version-specific runtime archive whose digest is bound to the
+2. When the release-candidate workflow is implemented, record the build
+   environment used for its published artifacts.
+3. Publish a version-specific runtime archive whose digest is bound to the
    qualified build. Official download tooling must verify that identity before
    installation or reuse.
 
 The repository-level vulnerability-reporting path, supported-version policy,
 and Arm PSIRT routing are recorded in [`SECURITY.md`](../SECURITY.md).
+The current build workflow pins its container and action by immutable digest,
+retains read-only repository permission, and does not persist checkout
+credentials. Release environment recording remains with the not-yet-implemented
+release-candidate workflow because pull-request builds publish no artifacts.
+
+The supported Python environments have separate, hash-locked dependency
+closures for applications, package builds, repository development, and the
+optional Ultralytics benchmark. Package builds use their committed build lock
+instead of downloading build requirements in an isolated environment.
+Picamera2 remains an operating-system package supplied by Raspberry Pi OS and
+is not represented as a Python package download.
 
 ## Responsibilities assigned to callers
 

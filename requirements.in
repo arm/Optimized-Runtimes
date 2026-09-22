@@ -1,0 +1,4 @@
+--index-url https://pypi.org/simple
+
+numpy==2.2.4
+opencv-python-headless==5.0.0.93
