@@ -1,17 +1,18 @@
 # Python dependency locks
 
-The `.in` files declare direct dependencies for four supported environments:
+Each `.in` file declares the direct dependencies for one supported environment
+and is stored beside the generated `.txt` lock that consumes it:
 
 | Input | Generated lock | Purpose |
 | --- | --- | --- |
-| `runtime.in` | `requirements.txt` | Python API and examples |
-| `build.in` | `requirements-build.txt` | Building the Python package |
-| `dev.in` | `requirements-dev.txt` | Repository checks and tests |
-| `ultralytics.in` | `benchmarks/ultralytics/requirements.txt` | Optional Ultralytics benchmark |
+| `requirements.in` | `requirements.txt` | Python API and examples |
+| `requirements-build.in` | `requirements-build.txt` | Building the Python package |
+| `requirements-dev.in` | `requirements-dev.txt` | Repository checks and tests |
+| `benchmarks/ultralytics/requirements.in` | `benchmarks/ultralytics/requirements.txt` | Optional Ultralytics benchmark |
 
-`lock.in` owns pip-tools itself and generates `requirements-lock.txt`. Lock
-generation therefore does not add packaging tools to an application or
-development environment.
+`requirements-lock.in` owns pip-tools itself and generates
+`requirements-lock.txt`. Lock generation therefore does not add packaging
+tools to an application or development environment.
 
 Every generated lock contains the complete resolved closure and the SHA-256
 hashes published for each pinned distribution. Supported setup commands use

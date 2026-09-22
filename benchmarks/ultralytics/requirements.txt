@@ -700,7 +700,7 @@ numpy==2.2.4 \
     --hash=sha256:f486038e44caa08dbd97275a9a35a283a8f1d2f0ee60ac260a1790e76660833c \
     --hash=sha256:f7de08cbe5551911886d1ab60de58448c6df0f67d9feb7d1fb21e9875ef95e91
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   contourpy
     #   matplotlib
     #   opencv-python
@@ -733,7 +733,7 @@ opencv-python-headless==5.0.0.93 \
     --hash=sha256:b82f9831daab90b725c7c1ee1b36cb5732c367096ac76d119e64e14eb70d5f3c \
     --hash=sha256:c6bcd96b185975ea240d22cfdb15a1f6d080cc95264cfbe2621f21bb144d89b9 \
     --hash=sha256:ed709fdf9aa0bd1f2ed8549e71d19449b03a675bb581eb292285f6861953be37
-    # via -r requirements/ultralytics.in
+    # via -r benchmarks/ultralytics/requirements.in
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
@@ -827,7 +827,7 @@ pillow==12.3.0 \
     --hash=sha256:fe3cca2e4e8a592be0f269a1ca4835c25199d9f3ce815c8491048f785b0a0198 \
     --hash=sha256:ffd0c5368496f41b0944be820fcb7a838aa6e623d250b01acf2643939c3f99d7
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   matplotlib
     #   torchvision
     #   ultralytics
@@ -952,7 +952,7 @@ pyyaml==6.0.3 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   ultralytics
 requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
@@ -993,7 +993,7 @@ torch==2.12.1+cpu \
     --hash=sha256:e3c3b5c275dd57cff1aa34a0ab8f84beab8976c63c8dc1d84f29430eac0590ea \
     --hash=sha256:ef228ec70f5e73762c213f145c0fdb672e5770a6de760801c58b933b0d5b6957
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   torchvision
     #   ultralytics
     #   ultralytics-thop
@@ -1017,7 +1017,7 @@ torchvision==0.27.1+cpu \
     --hash=sha256:bdf72febd34b7a69697ac11add8ae3cd97c6880050a497158fd218fd156220ae \
     --hash=sha256:ee7d80d1ff34ef369253013bb2b60d8c67e55bcf2331ff5e8367d046ff76c01d
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   ultralytics
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
@@ -1026,12 +1026,12 @@ typing-extensions==4.16.0 \
 ultralytics==8.4.108 \
     --hash=sha256:69c24b6890c98e97a01c2ce886a60b5ebdc8c39198d68390949b2fa88e75faa0 \
     --hash=sha256:ccadc57abce07001935e3b2251e19bb783bbdbfa3adf6b0decb5e1969fd0c876
-    # via -r requirements/ultralytics.in
+    # via -r benchmarks/ultralytics/requirements.in
 ultralytics-thop==2.1.6 \
     --hash=sha256:0ec2df8ebd3db35795e1f80cdc8bce6734446dbe989bca1b0c89396353f0f08c \
     --hash=sha256:23f7b8ad124fa3432c1a7de9279102c4fdda699216032a7dff49f87ec3d1a3af
     # via
-    #   -r requirements/ultralytics.in
+    #   -r benchmarks/ultralytics/requirements.in
     #   ultralytics
 urllib3==2.8.0 \
     --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 \

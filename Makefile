@@ -116,19 +116,20 @@ help:
 requirements-lock:
 	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
 	  --generate-hashes --allow-unsafe --strip-extras \
-	  --output-file requirements.txt requirements/runtime.in
+	  --output-file requirements.txt requirements.in
 	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
 	  --generate-hashes --allow-unsafe --strip-extras \
-	  --output-file requirements-build.txt requirements/build.in
+	  --output-file requirements-build.txt requirements-build.in
 	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
 	  --generate-hashes --allow-unsafe --strip-extras \
-	  --output-file requirements-dev.txt requirements/dev.in
+	  --output-file requirements-dev.txt requirements-dev.in
 	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
 	  --generate-hashes --allow-unsafe --strip-extras \
-	  --output-file requirements-lock.txt requirements/lock.in
+	  --output-file requirements-lock.txt requirements-lock.in
 	PIP_CONFIG_FILE=/dev/null CUSTOM_COMPILE_COMMAND='make requirements-lock' "$(LOCK_COMPILER)" \
 	  --generate-hashes --allow-unsafe --strip-extras \
-	  --output-file benchmarks/ultralytics/requirements.txt requirements/ultralytics.in
+	  --output-file benchmarks/ultralytics/requirements.txt \
+	  benchmarks/ultralytics/requirements.in
 
 # Checkpoint conversion
 .PHONY: model model-check

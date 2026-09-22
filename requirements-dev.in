@@ -1,6 +1,6 @@
 --index-url https://pypi.org/simple
 
--r runtime.in
+-r requirements.in
 
 clang-format==18.1.8
 coverage==7.16.1
