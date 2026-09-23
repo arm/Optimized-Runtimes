@@ -112,7 +112,7 @@ jobs:
         env:
           CLOSURE: ${{ matrix.closure }}
         run: |
-          revision="${GITHUB_SHA:0:8}"
+          revision="$(printf '%.8s' "$GITHUB_SHA")"
           echo "DETECT_PROJECT_VERSION_NAME=main-${CLOSURE}" >> "$GITHUB_ENV"
           echo "DETECT_CODE_LOCATION_NAME=arm-yolo26n-${CLOSURE}-${revision}" >> "$GITHUB_ENV"
 
