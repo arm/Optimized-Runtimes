@@ -3,8 +3,9 @@ SHELL := /bin/bash
 
 # Shared commands and repository paths
 ROOT := $(CURDIR)
+DEV_VENV ?= $(ROOT)/.venv
 PYTHON ?= python3
-CLANG_FORMAT ?= clang-format
+CLANG_FORMAT ?= $(DEV_VENV)/bin/clang-format
 LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
 VERSION := $(strip $(file <$(ROOT)/VERSION))
@@ -15,7 +16,8 @@ CHECKPOINT ?= $(DEFAULT_CHECKPOINT)
 CHECKPOINT_URL := https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt
 CHECKPOINT_SHA256 := 9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef
 RESOLUTION ?= 640
-MODEL ?= $(ROOT)/dist/models/yolo26n-$(RESOLUTION)
+DEFAULT_MODEL_ROOT := $(ROOT)/dist/models
+MODEL ?= $(DEFAULT_MODEL_ROOT)/yolo26n-$(RESOLUTION)
 MODEL_VALIDATION ?= $(ROOT)/dist/models/validation/yolo26n-$(RESOLUTION).json
 
 # Native runtime
@@ -30,8 +32,9 @@ RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.
 RELEASE_DEVELOPMENT_PACKAGE := \
 	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
 RUNTIME_RELEASE ?= v$(VERSION)
-RUNTIME_ARCHIVE := arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
-RUNTIME_URL ?= https://github.com/Arm-Debug/yolo-raspi-research/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
+RUNTIME_ARCHIVE := $(notdir $(RELEASE_PACKAGE))
+RUNTIME_REPOSITORY := arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+RUNTIME_URL ?= https://github.com/$(RUNTIME_REPOSITORY)/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
 
@@ -43,6 +46,7 @@ VIDEO ?= $(DEFAULT_VIDEO)
 VIDEO_URL := https://raw.githubusercontent.com/google-ai-edge/mediapipe/0ad5a71bcdff3d756dc5b07f93765aaeb4152538/mediapipe/examples/desktop/object_detection/test_video.mp4
 VIDEO_SHA256 := 710831289c00251c86eafb0b0d11cf6190fda02f95bcfaa5037511eabb5c9de8
 VIDEO_OUTPUT ?= $(ROOT)/examples/video/output/detections.json
+VIDEO_RENDERED ?= $(ROOT)/examples/video/output/rendered.mp4
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
@@ -86,6 +90,9 @@ help:
 	  '  make release' \
 	  '      Build the runtime, converter, and Python API release packages.' \
 	  '' \
+	  '  make clean' \
+	  '      Remove reproducible artifacts under build/ and dist/.' \
+	  '' \
 	  '  make requirements-lock' \
 	  '      Regenerate the hash-locked Python dependency closures.' \
 	  '' \
@@ -94,17 +101,15 @@ help:
 	  '      Install dependencies in examples/.venv and prepare a runtime and model.' \
 	  '' \
 	  '  make example-video' \
-	  '      Run the prerecorded-video example and write examples/video/output/.' \
-	  '' \
-	  '  make ultralytics-patch' \
-	  '      Install pinned Ultralytics and apply the benchmark integration patch.' \
+	  '      Write detections and a rendered MP4 under examples/video/output/.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
-	  '      Run Ultralytics validation for the selected runtime, model, and dataset.' \
+	  '      Prepare Ultralytics, then validate the selected runtime and model.' \
 	  '' \
 	  'Development checks:' \
+	  '      The hash-locked development environment is prepared automatically.' \
 	  '  make lint' \
-	  '      Run source formatting, static analysis, typing, and syntax checks.' \
+	  '      Prepare the development environment and run repository checks.' \
 	  '' \
 	  '  make test-unit' \
 	  '      Run unit and command-interface tests without the runtime.' \
@@ -138,13 +143,17 @@ requirements-lock:
 	  --output-file benchmarks/ultralytics/requirements.txt \
 	  benchmarks/ultralytics/requirements.in
 
+# Cleanup
+.PHONY: clean
+clean:
+	@printf 'Removing reproducible artifacts:\n  %s\n  %s\n' "$(ROOT)/build" "$(ROOT)/dist"
+	@cmake -E remove_directory "$(ROOT)/build"
+	@cmake -E remove_directory "$(ROOT)/dist"
+
 # Checkpoint conversion
 .PHONY: model model-check
-model: $(CHECKPOINT)
-	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.export_yolo26n \
-	  --checkpoint "$(CHECKPOINT)" \
-	  --resolution "$(RESOLUTION)" \
-	  --output-dir "$(MODEL)"
+model: $(MODEL)/manifest.json $(MODEL)/model.bin
+	@printf 'Model ready: %s\n' "$(MODEL)"
 
 model-check: $(CHECKPOINT)
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.validate \
@@ -161,7 +170,12 @@ runtime-configure:
 runtime: runtime-configure
 	cmake --build "$(RUNTIME_BUILD)" \
 	  --target arm_yolo26n yolo26n_runtime_api_test --parallel
-	ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure
+	@if test -f "$(MODEL)/model.bin"; then \
+	  YOLO26N_RUNTIME_API_TEST_MODEL="$(MODEL)/model.bin" \
+	    ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure; \
+	else \
+	  ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure; \
+	fi
 	cmake --install "$(RUNTIME_BUILD)" --prefix "$(RUNTIME_DIST)" --component runtime
 
 # Release packaging
@@ -220,7 +234,13 @@ _release-api:
 
 # Examples
 .PHONY: examples example-video
-examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin
+examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
+    $(EXAMPLES_VENV)/pyvenv.cfg
+	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
+	  "$(RUNTIME)" "$(MODEL)" "$(EXAMPLES_VENV)"
+
+$(EXAMPLES_VENV)/pyvenv.cfg: requirements-build.txt requirements.txt pyproject.toml \
+    $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	@# Picamera2 is installed by Raspberry Pi OS, so camera examples must see system packages.
 	"$(PYTHON)" -m venv --system-site-packages "$(EXAMPLES_VENV)"
 	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install --require-hashes \
@@ -229,6 +249,7 @@ examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin
 	  --no-deps --no-build-isolation "$(ROOT)"
 
 $(DEFAULT_CHECKPOINT):
+	@printf 'No checkpoint was supplied; downloading the pinned checkpoint to:\n  %s\n' "$@"
 	mkdir -p "$(@D)"
 	curl --fail --location --show-error "$(CHECKPOINT_URL)" --output "$@.tmp"
 	echo "$(CHECKPOINT_SHA256)  $@.tmp" | sha256sum --check
@@ -237,14 +258,26 @@ $(DEFAULT_CHECKPOINT):
 # A source build and a release download establish the same runtime path. Attach
 # the download rules only when no usable source-built distribution is present.
 ifneq ($(shell test -f "$(DEFAULT_RUNTIME)" && printf present),present)
+# Public releases use curl without requiring GitHub tooling. The authenticated
+# gh fallback keeps maintainer testing usable while the repository is internal.
 $(RUNTIME_DOWNLOAD):
 	mkdir -p "$(@D)"
-	curl --fail --location --show-error "$(RUNTIME_URL)" --output "$@.tmp"
+	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL)" --output "$@.tmp" || { \
+	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
+	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
+	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
+	}
 	mv "$@.tmp" "$@"
 
 $(RUNTIME_CHECKSUM):
 	mkdir -p "$(@D)"
-	curl --fail --location --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp"
+	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp" || { \
+	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
+	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
+	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
+	}
 	mv "$@.tmp" "$@"
 
 $(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
@@ -252,6 +285,7 @@ $(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
 	  printf 'runtime distribution is incomplete: %s\n' "$(RUNTIME_DIST)" >&2; exit 2; \
 	}
 	@cd "$(dir $(RUNTIME_DOWNLOAD))" && sha256sum --check "$(notdir $(RUNTIME_CHECKSUM))"
+	@mkdir -p "$(dir $(RUNTIME_DIST))"
 	@staging="$$(mktemp -d --tmpdir="$(dir $(RUNTIME_DIST))" .runtime.XXXXXX)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
 	  tar --extract --gzip --file "$(RUNTIME_DOWNLOAD)" --directory "$$staging"; \
@@ -264,6 +298,11 @@ $(MODEL)/manifest.json $(MODEL)/model.bin &: $(CHECKPOINT)
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.export_yolo26n \
 	  --checkpoint "$(CHECKPOINT)" --resolution "$(RESOLUTION)" --output-dir "$(MODEL)"
 
+# Build missing models whose default directory names identify their resolution.
+$(DEFAULT_MODEL_ROOT)/yolo26n-%/manifest.json $(DEFAULT_MODEL_ROOT)/yolo26n-%/model.bin &: $(CHECKPOINT)
+	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.export_yolo26n \
+	  --checkpoint "$(CHECKPOINT)" --resolution "$*" --output-dir "$(@D)"
+
 $(DEFAULT_VIDEO):
 	mkdir -p "$(@D)"
 	curl --fail --location --show-error "$(VIDEO_URL)" --output "$@.tmp"
@@ -274,13 +313,17 @@ example-video: examples $(VIDEO)
 	"$(EXAMPLES_PYTHON)" -m examples.video.detect \
 	  --runtime "$(RUNTIME)" --model "$(MODEL)" --video "$(VIDEO)" \
 	  --output "$(VIDEO_OUTPUT)" --frames 200
+	"$(EXAMPLES_PYTHON)" -m examples.video.render \
+	  --video "$(VIDEO)" --detections "$(VIDEO_OUTPUT)" --output "$(VIDEO_RENDERED)"
+	@printf 'Video example complete:\n  detections: %s\n  rendered video: %s\n' \
+	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
 
 # Ultralytics benchmark
-.PHONY: ultralytics-patch ultralytics-benchmark
-ultralytics-patch:
+.PHONY: _ultralytics-prepare ultralytics-benchmark
+_ultralytics-prepare:
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
-ultralytics-benchmark:
+ultralytics-benchmark: _ultralytics-prepare
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \
@@ -291,8 +334,22 @@ ultralytics-benchmark:
 	  -- $(YOLO_ARGS)
 
 # Development checks
-.PHONY: lint test-unit test-converter test-end-to-end coverage
-lint:
+.PHONY: _dev lint test-unit test-converter test-end-to-end coverage
+_dev: $(DEV_VENV)/pyvenv.cfg
+
+# pyvenv.cfg is created by venv itself, so it can mark a completed environment
+# without adding a repository-specific stamp file. A newer lock rebuilds it.
+$(DEV_VENV)/pyvenv.cfg: requirements-dev.txt
+	@cmake -E remove_directory "$(DEV_VENV)"
+	python3 -m venv "$(DEV_VENV)"
+	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip install --require-hashes \
+	  --requirement requirements-dev.txt
+
+# Development targets use the locked repository environment by default. A
+# command-line PYTHON still takes precedence for CI or another managed setup.
+lint test-unit test-converter test-end-to-end coverage: PYTHON := $(DEV_VENV)/bin/python
+
+lint: _dev
 	@# clang-format verifies the C and C++ source formatting.
 	@find src/runtime -type f \
 	  \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.inc' \) \
@@ -319,14 +376,14 @@ lint:
 	@# Git detects whitespace errors introduced by the current change.
 	git diff --check
 
-test-unit:
+test-unit: _dev
 	PYTHONPATH="$(TEST_PYTHONPATH)" "$(PYTHON)" -m pytest tests/unit
 
-test-converter: $(CHECKPOINT)
+test-converter: _dev $(CHECKPOINT)
 	PYTHONPATH="$(TEST_PYTHONPATH)" YOLO26N_CHECKPOINT="$(CHECKPOINT)" \
 	  "$(PYTHON)" -m pytest tests/converter
 
-test-end-to-end: $(MODEL_ARTIFACTS) test-converter runtime
+test-end-to-end: _dev $(MODEL_ARTIFACTS) test-converter runtime
 	YOLO26N_RUNTIME_API_TEST_MODEL="$(NATIVE_API_TEST_MODEL)" \
 	  ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure \
 	  --tests-regex '^yolo26n_runtime_api_behavior$$'
@@ -334,7 +391,7 @@ test-end-to-end: $(MODEL_ARTIFACTS) test-converter runtime
 	  YOLO26N_E2E_RUNTIME="$(RUNTIME)" YOLO26N_E2E_MODELS="$(MODELS)" \
 	  "$(PYTHON)" -m pytest tests/end_to_end
 
-coverage: $(CHECKPOINT) $(MODEL_ARTIFACTS)
+coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	@# Build the runtime with coverage instrumentation and discard stale counters.
 	cmake -S src/runtime -B "$(COVERAGE_RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Debug -DYOLO26N_ENABLE_COVERAGE=ON

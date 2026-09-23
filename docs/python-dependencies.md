@@ -20,6 +20,10 @@ pip's `--require-hashes`. Package builds install the separate build lock and
 use `--no-build-isolation`, so their build requirements are not downloaded
 implicitly.
 
+Repository lint and test targets install `requirements-dev.txt` into `.venv/`
+through a hidden Make prerequisite. The environment is recreated only when it
+is absent or the committed development lock changes.
+
 To update dependencies, install `requirements-lock.txt` into a dedicated
 Python 3.13 environment. Then run `make requirements-lock` with
 `LOCK_COMPILER` set to that environment's `pip-compile`, and review both
