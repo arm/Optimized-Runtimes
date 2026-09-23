@@ -4,8 +4,6 @@ SHELL := /bin/bash
 # Shared commands and repository paths
 ROOT := $(CURDIR)
 DEV_VENV ?= $(ROOT)/.venv
-DEV_PYTHON := $(DEV_VENV)/bin/python
-DEV_ENVIRONMENT := $(DEV_VENV)/pyvenv.cfg
 PYTHON ?= python3
 CLANG_FORMAT ?= $(DEV_VENV)/bin/clang-format
 LOCK_COMPILER ?= pip-compile
@@ -42,7 +40,6 @@ RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
 # Examples
 EXAMPLES_VENV ?= $(ROOT)/examples/.venv
 EXAMPLES_PYTHON := $(EXAMPLES_VENV)/bin/python
-EXAMPLES_ENVIRONMENT := $(EXAMPLES_VENV)/pyvenv.cfg
 DEFAULT_VIDEO := $(ROOT)/downloads/media/test-video.mp4
 VIDEO ?= $(DEFAULT_VIDEO)
 VIDEO_URL := https://raw.githubusercontent.com/google-ai-edge/mediapipe/0ad5a71bcdff3d756dc5b07f93765aaeb4152538/mediapipe/examples/desktop/object_detection/test_video.mp4
@@ -236,11 +233,12 @@ _release-api:
 
 # Examples
 .PHONY: examples example-video
-examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin $(EXAMPLES_ENVIRONMENT)
+examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
+    $(EXAMPLES_VENV)/pyvenv.cfg
 	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
 	  "$(RUNTIME)" "$(MODEL)" "$(EXAMPLES_VENV)"
 
-$(EXAMPLES_ENVIRONMENT): requirements-build.txt requirements.txt pyproject.toml \
+$(EXAMPLES_VENV)/pyvenv.cfg: requirements-build.txt requirements.txt pyproject.toml \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	@# Picamera2 is installed by Raspberry Pi OS, so camera examples must see system packages.
 	"$(PYTHON)" -m venv --system-site-packages "$(EXAMPLES_VENV)"
@@ -323,13 +321,19 @@ ultralytics-benchmark: _ultralytics-prepare
 
 # Development checks
 .PHONY: _dev lint test-unit test-converter test-end-to-end coverage
-_dev: $(DEV_ENVIRONMENT)
+_dev: $(DEV_VENV)/pyvenv.cfg
 
-$(DEV_ENVIRONMENT): requirements-dev.txt
+# pyvenv.cfg is created by venv itself, so it can mark a completed environment
+# without adding a repository-specific stamp file. A newer lock rebuilds it.
+$(DEV_VENV)/pyvenv.cfg: requirements-dev.txt
 	@cmake -E remove_directory "$(DEV_VENV)"
-	"$(PYTHON)" -m venv "$(DEV_VENV)"
+	python3 -m venv "$(DEV_VENV)"
 	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip install --require-hashes \
 	  --requirement requirements-dev.txt
+
+# Development targets use the locked repository environment by default. A
+# command-line PYTHON still takes precedence for CI or another managed setup.
+lint test-unit test-converter test-end-to-end coverage: PYTHON := $(DEV_VENV)/bin/python
 
 lint: _dev
 	@# clang-format verifies the C and C++ source formatting.
@@ -337,33 +341,33 @@ lint: _dev
 	  \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.inc' \) \
 	  -exec "$(CLANG_FORMAT)" --dry-run --Werror {} +
 	@# Ruff's formatter verifies the Python source formatting.
-	"$(DEV_PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
+	"$(PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
 	  benchmarks examples tests
 	@# Ruff's linter detects Python correctness, style, and import problems.
-	"$(DEV_PYTHON)" -m ruff check src/converter src/runtime/api/python/arm_yolo26n \
+	"$(PYTHON)" -m ruff check src/converter src/runtime/api/python/arm_yolo26n \
 	  benchmarks examples tests
 	@# Import Linter enforces the converter's declared dependency direction.
-	PYTHONPATH="$(ROOT)/src" "$(DEV_PYTHON)" -c \
+	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -c \
 	  'from importlinter.cli import lint_imports; raise SystemExit(lint_imports(no_cache=True))'
 	@# Mypy checks consistency between the declared Python types and their uses.
-	"$(DEV_PYTHON)" -m mypy
+	"$(PYTHON)" -m mypy
 	@# Vulture reports Python functions, classes, and variables that are never used.
-	"$(DEV_PYTHON)" -m vulture
+	"$(PYTHON)" -m vulture
 	@# Bash parses every benchmark shell script without executing it.
 	@find benchmarks/ultralytics -maxdepth 1 -type f -name '*.sh' -exec bash -n {} +
 	@# Python's JSON parser verifies the checked-in JSON documents.
 	@shopt -s nullglob; for document in src/converter/*.json benchmarks/reporting/*.json; do \
-	  "$(DEV_PYTHON)" -m json.tool "$$document" >/dev/null; \
+	  "$(PYTHON)" -m json.tool "$$document" >/dev/null; \
 	done
 	@# Git detects whitespace errors introduced by the current change.
 	git diff --check
 
 test-unit: _dev
-	PYTHONPATH="$(TEST_PYTHONPATH)" "$(DEV_PYTHON)" -m pytest tests/unit
+	PYTHONPATH="$(TEST_PYTHONPATH)" "$(PYTHON)" -m pytest tests/unit
 
 test-converter: _dev $(CHECKPOINT)
 	PYTHONPATH="$(TEST_PYTHONPATH)" YOLO26N_CHECKPOINT="$(CHECKPOINT)" \
-	  "$(DEV_PYTHON)" -m pytest tests/converter
+	  "$(PYTHON)" -m pytest tests/converter
 
 test-end-to-end: _dev $(MODEL_ARTIFACTS) test-converter runtime
 	YOLO26N_RUNTIME_API_TEST_MODEL="$(NATIVE_API_TEST_MODEL)" \
@@ -371,7 +375,7 @@ test-end-to-end: _dev $(MODEL_ARTIFACTS) test-converter runtime
 	  --tests-regex '^yolo26n_runtime_api_behavior$$'
 	PYTHONPATH="$(TEST_PYTHONPATH)" \
 	  YOLO26N_E2E_RUNTIME="$(RUNTIME)" YOLO26N_E2E_MODELS="$(MODELS)" \
-	  "$(DEV_PYTHON)" -m pytest tests/end_to_end
+	  "$(PYTHON)" -m pytest tests/end_to_end
 
 coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	@# Build the runtime with coverage instrumentation and discard stale counters.
@@ -384,17 +388,17 @@ coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	  ctest --test-dir "$(COVERAGE_RUNTIME_BUILD)" --output-on-failure
 	@# Run the public Python behavior suites against the instrumented runtime.
 	mkdir -p "$(dir $(PYTHON_COVERAGE_REPORT))" "$(dir $(NATIVE_COVERAGE_REPORT))"
-	"$(DEV_PYTHON)" -m coverage erase
+	"$(PYTHON)" -m coverage erase
 	PYTHONPATH="$(TEST_PYTHONPATH)" \
 	  YOLO26N_CHECKPOINT="$(CHECKPOINT)" \
 	  YOLO26N_E2E_RUNTIME="$(COVERAGE_RUNTIME)" \
 	  YOLO26N_E2E_MODELS="$(MODELS)" \
-	  "$(DEV_PYTHON)" -m coverage run -m pytest tests/unit tests/converter tests/end_to_end
+	  "$(PYTHON)" -m coverage run -m pytest tests/unit tests/converter tests/end_to_end
 	@# Write one machine-readable report for each implementation language.
-	"$(DEV_PYTHON)" -m coverage combine
-	"$(DEV_PYTHON)" -m coverage report
-	"$(DEV_PYTHON)" -m coverage xml -o "$(PYTHON_COVERAGE_REPORT)"
-	"$(DEV_PYTHON)" -m gcovr --root "$(ROOT)" --filter "$(ROOT)/src/runtime/" \
+	"$(PYTHON)" -m coverage combine
+	"$(PYTHON)" -m coverage report
+	"$(PYTHON)" -m coverage xml -o "$(PYTHON_COVERAGE_REPORT)"
+	"$(PYTHON)" -m gcovr --root "$(ROOT)" --filter "$(ROOT)/src/runtime/" \
 	  --exclude-unreachable-branches --exclude-throw-branches \
 	  "$(COVERAGE_RUNTIME_BUILD)/CMakeFiles/arm_yolo26n.dir" \
 	  --txt - --cobertura "$(NATIVE_COVERAGE_REPORT)"
