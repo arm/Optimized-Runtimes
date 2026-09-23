@@ -31,25 +31,29 @@ so its bindings match libcamera. Confirm camera access with
 ## Headless detection
 
 ```bash
-make example-camera CAMERA_ARGS="--frames 100 --print-detections"
+examples/.venv/bin/python -m examples.picamera2.detect \
+  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
+  --model "$PWD/dist/models/yolo26n-640" \
+  --camera 0 \
+  --frames 100 \
+  --print-detections
 ```
 
-Without `CAMERA_ARGS`, the example runs until interrupted. Select a different
-camera with `CAMERA=1`.
+Omit `--frames` to run until interrupted.
 
 ## Live preview
 
 On a Raspberry Pi desktop, use QtGL:
 
 ```bash
-make example-camera-live CAMERA_ARGS="--preview qtgl"
+make example-camera CAMERA_ARGS="--preview qtgl"
 ```
 
 For an SSH process, forward the active desktop environment if needed:
 
 ```bash
 DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR="/run/user/$(id -u)" \
-  make example-camera-live CAMERA_ARGS="--preview qtgl"
+  make example-camera CAMERA_ARGS="--preview qtgl"
 ```
 
 Use `--preview auto` to let Picamera2 choose, or stop the graphical desktop and

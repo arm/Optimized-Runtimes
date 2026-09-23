@@ -106,9 +106,6 @@ help:
 	  '      Write detections and a rendered MP4 under examples/video/output/.' \
 	  '' \
 	  '  make example-camera [CAMERA=0] [CAMERA_ARGS="..."]' \
-	  '      Run headless Picamera2 detection until interrupted.' \
-	  '' \
-	  '  make example-camera-live [CAMERA=0] [CAMERA_ARGS="..."]' \
 	  '      Run the annotated Picamera2 live preview until interrupted.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
@@ -241,7 +238,7 @@ _release-api:
 	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
-.PHONY: examples example-video example-camera example-camera-live
+.PHONY: examples example-video example-camera
 examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
     $(EXAMPLES_VENV)/pyvenv.cfg
 	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
@@ -327,10 +324,6 @@ example-video: examples $(VIDEO)
 	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
 
 example-camera: examples
-	"$(EXAMPLES_PYTHON)" -m examples.picamera2.detect \
-	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
-
-example-camera-live: examples
 	"$(EXAMPLES_PYTHON)" -m examples.picamera2.live \
 	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
 
