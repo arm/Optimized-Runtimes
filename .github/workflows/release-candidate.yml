@@ -1,4 +1,7 @@
-name: Release candidate
+# Promote the packages retained by a successful main build into a draft GitHub
+# release after its Black Duck result has been reviewed. This workflow verifies
+# the retained files and never rebuilds them.
+name: Create release candidate
 
 on:
   workflow_dispatch:

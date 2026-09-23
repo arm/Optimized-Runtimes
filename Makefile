@@ -193,6 +193,9 @@ release: runtime _release-converter _release-api
 	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
 	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256" "$(PACKAGE_DIST)/"
 
+# These targets build only repository source. They neither install nor resolve
+# dependencies; callers provide the hash-locked build environment defined by
+# requirements-build.txt. CI installs that environment with --require-hashes.
 .PHONY: _release-converter
 _release-converter:
 	mkdir -p "$(PACKAGE_DIST)"
