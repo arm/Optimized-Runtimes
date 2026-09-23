@@ -79,7 +79,9 @@ help:
 	  '      and verify the pinned official YOLO26n checkpoint.' \
 	  '' \
 	  '  make runtime' \
-	  '      Configure, compile, test, and write the native runtime to dist/runtime/.' \
+	  '      Configure, compile, test, and write the runtime to dist/runtime/.' \
+	  '  make runtime-configure' \
+	  '      Configure the runtime build and fetch its pinned dependencies.' \
 	  '' \
 	  '  make release' \
 	  '      Build the runtime, converter, and Python API release packages.' \
@@ -151,10 +153,12 @@ model-check: $(CHECKPOINT)
 	  --output "$(MODEL_VALIDATION)"
 
 # Runtime
-.PHONY: runtime
-runtime:
+.PHONY: runtime-configure runtime
+runtime-configure:
 	cmake -S src/runtime -B "$(RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Release
+
+runtime: runtime-configure
 	cmake --build "$(RUNTIME_BUILD)" \
 	  --target arm_yolo26n yolo26n_runtime_api_test --parallel
 	ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure

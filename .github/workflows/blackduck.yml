@@ -1,0 +1,169 @@
+name: Black Duck
+
+# Scan the four dependency closures documented in
+# docs/black-duck-scanning-scheme.md. This workflow receives a Black Duck API
+# token, so it runs only for trusted code already merged to main.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: black-duck-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    if: github.ref == 'refs/heads/main'
+    name: Scan ${{ matrix.closure }} closure
+    runs-on: ubuntu-24.04-arm
+    environment: blackduck
+    container:
+      image: debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # CMake fetches the four projects linked into the runtime library.
+          # Scan those source trees without generated build files or unrelated
+          # repository content.
+          - closure: runtime
+            directory: build/blackduck/runtime/sources
+            distribution: EXTERNAL
+            detect_args: >-
+              --detect.tools=SIGNATURE_SCAN
+              --detect.blackduck.signature.scanner.upload.source.mode=false
+              --detect.blackduck.signature.scanner.snippet.matching=NONE
+              --detect.blackduck.signature.scanner.license.search=true
+          # Scan each Python closure from one hash-locked input and an isolated
+          # environment so unrelated installed packages cannot enter its BOM.
+          - closure: examples
+            directory: build/blackduck/examples
+            distribution: EXTERNAL
+            requirements: requirements.txt
+            venv: build/blackduck/examples-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
+          - closure: build
+            directory: build/blackduck/build
+            distribution: INTERNAL
+            requirements: requirements-build.txt
+            venv: build/blackduck/build-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
+          - closure: ultralytics
+            directory: build/blackduck/ultralytics
+            distribution: INTERNAL
+            requirements: benchmarks/ultralytics/requirements.txt
+            venv: build/blackduck/ultralytics-venv
+            detect_args: >-
+              --detect.tools=DETECTOR
+              --detect.detector.search.depth=0
+              --detect.included.detector.types=PIP
+              --detect.required.detector.types=PIP
+              --detect.accuracy.required=PIP
+    env:
+      PIP_CONFIG_FILE: /dev/null
+      DETECT_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME }}
+      DETECT_PROJECT_VERSION_DISTRIBUTION: ${{ matrix.distribution }}
+      DETECT_PROJECT_VERSION_LICENSE: Apache License 2.0
+      DETECT_PROJECT_VERSION_UPDATE: "true"
+      # Each closure has one long-lived main version. Replace its previous scan
+      # mapping so removed dependencies do not remain in the current BOM.
+      DETECT_PROJECT_CODELOCATION_UNMAP: "true"
+    steps:
+      - name: Install scan prerequisites
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            cmake \
+            curl \
+            default-jre-headless \
+            git \
+            patch \
+            python3 \
+            python3-venv \
+            unzip
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure container workspace ownership
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set scan identity
+        env:
+          CLOSURE: ${{ matrix.closure }}
+        run: |
+          revision="${GITHUB_SHA:0:8}"
+          echo "DETECT_PROJECT_VERSION_NAME=main-${CLOSURE}" >> "$GITHUB_ENV"
+          echo "DETECT_CODE_LOCATION_NAME=arm-yolo26n-${CLOSURE}-${revision}" >> "$GITHUB_ENV"
+
+      - name: Require Black Duck configuration
+        env:
+          BLACKDUCK_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME }}
+          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
+          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
+        run: |
+          test -n "$BLACKDUCK_PROJECT_NAME" || {
+            echo 'BLACKDUCK_PROJECT_NAME is not configured' >&2
+            exit 1
+          }
+          test -n "$BLACKDUCK_URL" || {
+            echo 'BLACKDUCK_URL is not configured' >&2
+            exit 1
+          }
+          test -n "$BLACKDUCK_TOKEN" || {
+            echo 'BLACKDUCK_TOKEN is not configured' >&2
+            exit 1
+          }
+
+      - name: Prepare runtime dependency sources
+        if: matrix.closure == 'runtime'
+        run: |
+          make runtime-configure \
+            RUNTIME_BUILD="$GITHUB_WORKSPACE/build/blackduck/runtime"
+
+      - name: Prepare locked Python closure
+        if: matrix.closure != 'runtime'
+        env:
+          REQUIREMENTS: ${{ matrix.requirements }}
+          SCAN_DIRECTORY: ${{ matrix.directory }}
+          VENV: ${{ matrix.venv }}
+        run: |
+          mkdir -p "$SCAN_DIRECTORY"
+          cp "$REQUIREMENTS" "$SCAN_DIRECTORY/requirements.txt"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --require-hashes \
+            --requirement "$SCAN_DIRECTORY/requirements.txt"
+          echo "DETECT_PYTHON_PATH=$GITHUB_WORKSPACE/$VENV/bin/python" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_PATH=$GITHUB_WORKSPACE/$VENV/bin/pip" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_REQUIREMENTS_PATH=$GITHUB_WORKSPACE/$SCAN_DIRECTORY/requirements.txt" \
+            >> "$GITHUB_ENV"
+
+      - name: Scan ${{ matrix.closure }} closure
+        uses: blackduck-inc/black-duck-security-scan@152247222aa9cd38124acd5c0cf60f4db71adc3f # v2.11.0
+        with:
+          blackducksca_url: ${{ vars.BLACKDUCK_URL }}
+          blackducksca_token: ${{ secrets.BLACKDUCK_TOKEN }}
+          blackducksca_scan_full: true
+          blackducksca_waitForScan: true
+          project_directory: ${{ matrix.directory }}
+          detect_args: ${{ matrix.detect_args }}
