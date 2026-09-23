@@ -321,9 +321,6 @@ example-video: examples $(VIDEO)
 	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
 
 # Ultralytics benchmark
-.PHONY: _ultralytics-prepare ultralytics-benchmark
-_ultralytics-prepare: $(ULTRALYTICS_VENV)/pyvenv.cfg
-
 # Recreate the benchmark environment only when one of its installed inputs
 # changes. pyvenv.cfg is the completion artifact created by Python itself.
 $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
@@ -334,7 +331,8 @@ $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
-ultralytics-benchmark: _ultralytics-prepare
+.PHONY: ultralytics-benchmark
+ultralytics-benchmark: $(ULTRALYTICS_VENV)/pyvenv.cfg
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \
