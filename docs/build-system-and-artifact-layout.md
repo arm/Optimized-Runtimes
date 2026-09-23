@@ -10,7 +10,8 @@ independently, and applications select one runtime and one converted model.
 This proposal preserves two established architectural decisions:
 
 - CMake owns native dependency acquisition, compilation, native verification,
-  installation, and native release packaging.
+  and installation. The top-level `make release` command packages the files
+  installed by CMake with the converter and application API.
 - Converting a checkpoint never invokes the native toolchain or changes the
   runtime library.
 
@@ -27,8 +28,8 @@ the architecture:
   resolution-specific model directory. This makes a deployment bundle look
   like the fundamental artifact even though the runtime and model have
   independent lifecycles.
-- CMake installation and CPack already own native publication, while
-  `package_runtime.cmake` creates a second, differently shaped runtime archive.
+- CMake installation and `package_runtime.cmake` formerly created two
+  differently shaped native archives.
 - `dist/` contains unpacked local model bundles and an internal Ultralytics
   workspace as well as release archives. A path under `dist/` therefore does
   not reliably mean that its contents can be published.
@@ -51,8 +52,7 @@ the architecture:
 | Native configuration and dependencies | CMake | `src/runtime` and pinned dependency revisions | CMake build tree |
 | Native compilation and verification | CMake and CTest | Configured native build tree | Runtime shared library and test results |
 | Native installation | CMake install rules | Built runtime | Prefix using the platform installation layout |
-| Native release archive | CPack | CMake install components | Publishable archive under `dist/` |
-| Python installation | Python packaging metadata | `arm_yolo26n` source | Installed application API |
+| Release packages | Top-level Makefile over CMake install rules and Python packaging metadata | Native installation, converter, and application API | Publishable archives under `dist/packages/` |
 | Example preparation | `examples` workflow | Python package, checkpoint, media, and runtime source | Reusable example inputs and converted model |
 | Example execution | Individual example | Runtime, converted model, and input media or camera | Results beside that example under `output/` |
 | Ultralytics preparation | `benchmarks/ultralytics` | Pinned benchmark requirements and repository patch | Patched environment under `benchmarks/ultralytics/.venv` |
@@ -78,7 +78,7 @@ build/
 dist/
   runtime/                         Installed or downloaded runtime distribution
   models/<model>-<resolution>/     Locally converted model and manifest
-  packages/                        Explicitly created release archives
+  packages/                        Component and final distribution packages
 
 examples/.venv/                    Example application environment
 examples/video/output/             Video detections, rendered video, and logs
@@ -101,8 +101,9 @@ The meanings are strict:
   directory. Locally converted models live under `dist/models/`. Presence
   under `dist/` means the artifact is ready to use, not that this project has
   the right to redistribute a particular set of weights.
-- `dist/packages/` is created only when someone explicitly requests a release
-  archive, wheel, or source distribution.
+- `dist/packages/` contains the converter and application API wheels plus the
+  final runtime and development distributions. The build retains only the
+  final files that can become a release candidate.
 - Environments and user-visible results live with the workflow that owns them.
   A user running the video example finds its output under
   `examples/video/output/`, not in an unrelated build directory.
@@ -155,15 +156,12 @@ bundle or forwarding command is needed.
 
 ## Native packaging
 
-CMake defines the native target, verification test, install rules, and CPack
-archive. It is the sole native publication path; the separate
-`package_runtime.cmake` archive path has been removed.
-
-The runtime archive is generated from CMake install components so an
-archive, a staged installation, and future Debian packages share one file
-layout. The runtime and development files should be separate install
-components: the versioned shared library and notices are runtime files, while
-the unversioned linker name and C header are development files.
+CMake defines the native target, verification tests, and runtime and
+development install components. `make release` stages those components using
+`cmake --install` and creates the final archives once. The versioned shared
+library and notices are runtime files, while the unversioned linker name and C
+header are development files. A future Debian package can consume those same
+install components without changing their ownership or layout.
 
 The runtime uses a Debian-compatible library name and SONAME:
 
@@ -215,7 +213,7 @@ to repeat `yolo26n` everywhere.
 | `make model [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then convert it into `dist/models/`; no native build |
 | `make model-check [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then validate conversion behavior and write a receipt |
 | `make runtime` | Configure, compile, run CTest, and install into `dist/runtime/` |
-| `make runtime-package` | Produce the CPack runtime archive and checksum in `dist/packages/` |
+| `make release` | Produce the native, converter, and Python API release packages in `dist/packages/` |
 | `make examples` | Prepare the example environment, verified inputs, runtime selection, and converted model; do not run an example |
 | `make example-video` | Run the prerecorded-video example using prepared or explicit inputs |
 | `make ultralytics-patch` | Prepare the pinned Ultralytics environment and apply the repository patch; do not run validation |
@@ -278,8 +276,8 @@ recording workflow under `benchmarks/reporting/output/`.
    model locations, then remove bundle assembly.
 2. Give the native library its reviewed Debian-compatible name and SONAME;
    split CMake runtime and development install components.
-3. Make CPack the only native release packager and remove the standalone
-   runtime packaging script.
+3. Use CMake install components as the native input to `make release` and
+   remove the standalone runtime packaging script.
 4. Add standard Python packaging for `arm_yolo26n` and remove repository-wide
    runtime reliance on `PYTHONPATH`.
 5. Establish `downloads/`, `build/`, `dist/`, and workflow environment paths,

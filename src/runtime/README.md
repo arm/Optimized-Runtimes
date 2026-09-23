@@ -41,12 +41,15 @@ cmake --build /absolute/build --target arm_yolo26n --parallel
 ctest --test-dir /absolute/build --output-on-failure
 ```
 
-The standard install and CPack targets publish separate runtime and development
+The install rules expose separate runtime and development components. The
+top-level `make release` command packages those installed files with the Python
 components. Converted models remain independent and never invoke CMake:
 
 ```sh
-cmake --install /absolute/build --prefix /absolute/runtime-install
-cpack --config /absolute/build/CPackConfig.cmake -C Release
+cmake --install /absolute/build --prefix /absolute/runtime-install \
+  --component runtime
+cmake --install /absolute/build --prefix /absolute/development-install \
+  --component development
 ```
 
 Accuracy and performance are measured through the Ultralytics integration:

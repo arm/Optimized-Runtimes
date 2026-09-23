@@ -7,9 +7,9 @@ those exact files on a supported Raspberry Pi 5, and publish them without a
 second build. This preserves the clean CI build environment while making
 physical-device validation a release requirement.
 
-This workflow is recorded here for implementation when the project moves to
-its public repository. It does not add release credentials or publication
-automation to the current repository.
+Candidate construction is implemented by the manually dispatched
+`release-candidate.yml` workflow. Publication remains a separate human action
+after Raspberry Pi qualification.
 
 ## Published files
 
@@ -20,9 +20,10 @@ arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz
 ```
 
 This is the prebuilt distribution for running YOLO26n. It contains the native
-runtime installation and the Python wheel. The release notes link to it as
-**Download for Raspberry Pi 5** and give the extraction and Python installation
-commands. A Python application needs no other release asset.
+runtime installation, checkpoint converter wheel, and application API wheel.
+The release notes link to it as **Download for Raspberry Pi 5** and give the
+extraction and Python installation commands. A Python application needs no
+other release asset.
 
 Repository examples obtain this distribution automatically. The public
 implementation must derive a version-specific release URL from the checkout
@@ -31,8 +32,8 @@ own runtime.
 
 | File | Owner | Contents |
 | --- | --- | --- |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | Release assembly from CMake and Python outputs | Ready-to-run native installation, Python wheel, project license, and third-party licenses |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | CMake and CPack | Optional C header and unversioned linker name for C or C++ development |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | `make release` | Ready-to-run native installation, converter and application API wheels, project license, and third-party licenses |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | `make release` from the CMake development install component | Optional C header and unversioned linker name for C or C++ development |
 | `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
 
 GitHub's archive for the release tag is the complete project source
@@ -61,45 +62,58 @@ does not repeat an unchanged scan.
 
 ## Candidate construction
 
-A separate, manually triggered GitHub Actions workflow accepts a version and a
-commit already present on `main`. It uses the controlled hosted Arm Debian
-Trixie build environment and the existing package owners:
+A separate, manually triggered GitHub Actions workflow operates on the current
+`main` commit and reads its version from `VERSION`. The ordinary `main` build
+remains the only build: it has already run the tests, built the converter and
+application API wheels, installed CMake's runtime and development components,
+and assembled the final distribution. Candidate construction:
 
-1. verify that the requested version agrees with the CMake and Python package
-   metadata;
-2. build the Python wheel;
-3. have CMake build and ABI-check the runtime, then have CPack produce the
-   runtime and development components;
-4. assemble the installed runtime component and unchanged Python wheel into
-   the platform-named prebuilt distribution;
-5. inspect the archives for their expected installed files;
-6. generate SHA-256 checksums and a candidate manifest containing the source
-   commit and every file identity; and
-7. create a draft GitHub release targeting that commit and upload the complete
-   candidate once.
+1. verifies the current `main` commit and its version;
+2. requires a successful build and successful Black Duck run for that exact
+   commit, plus the maintainer's confirmation that the Black Duck result was
+   reviewed;
+3. downloads the retained `main-build-<commit>` artifact without rebuilding;
+4. verifies the final distribution checksums and expected native, Python, and
+   license files; and
+5. creates one draft GitHub release targeting that commit and records the
+   source, build, and Black Duck run in its notes.
 
-The workflow sequences existing CMake and Python packaging commands. It does
-not introduce another native or Python packager and does not alter the outputs
-produced by those owners. Its release assembly gives users one platform
-distribution instead of requiring them to identify and combine implementation
-components. Pull-request workflows continue to verify packaging but do not
-retain downloadable packages.
+The top-level `make release` command stages the native files through CMake's
+install rules, builds the converter and application API wheels, and combines
+those outputs into the single platform distribution users need. The build
+workflow only invokes that repository command and retains its final outputs.
+The candidate workflow verifies those retained bytes. It uses
+the `release-candidate` GitHub environment so repository administrators can add
+required reviewers before granting permission to create a draft release.
 
-Successful builds triggered by a push to `main` retain the unassembled CPack
-archives, checksums, and Python wheel for 30 days under an artifact named
-`main-build-<commit>`. These files make an ordinary merged build available for
-testing and diagnosis. They are not release candidates: candidate construction
-still verifies the version, assembles the supported distribution, records its
-source commit and checksums, and creates the draft release used by qualification.
+To construct a candidate, open **Actions → Release candidate → Run workflow**,
+select `main`, and confirm Black Duck review only after inspecting that
+commit's successful scan. Candidate runs are serialized so two maintainers
+cannot race to create the same release. The workflow rejects malformed
+versions, missing successful runs, existing release tags, and unexpected or
+damaged build packages.
+
+This follows [`arm/topo`'s release workflow](https://github.com/arm/topo/blob/main/.github/workflows/release.yaml)
+in using a manual release from current `main`, serializing release runs, and
+handing artifacts to a later publishing stage by producer-run identity. Topo
+rebuilds with GoReleaser because it produces tagged binaries for several
+platforms and then delegates signing and Artifactory publication. This project
+instead promotes its already-tested, fixed-platform `main` packages and creates
+a draft because Raspberry Pi qualification must occur before publication.
+
+Successful builds triggered by a push to `main` retain the final runtime and
+development distributions and their checksums for 30 days under an artifact
+named `main-build-<commit>`. Candidate construction verifies those files,
+records their source commit and workflow evidence, and promotes the unchanged
+bytes into the draft release used by qualification.
 
 ## Raspberry Pi qualification
 
 Qualification is performed by a human on a Raspberry Pi 5 matching
 [`supported-environment.md`](supported-environment.md); it does not require a
 self-hosted GitHub runner. The maintainer downloads the candidate with the
-GitHub interface or `gh release download` and verifies its manifest and
-checksums. Draft releases are visible to maintainers but are not public
-releases.
+GitHub interface or `gh release download` and verifies its checksums. Draft
+releases are visible to maintainers but are not public releases.
 
 The Pi is freshly restarted before qualification. After startup activity has
 settled, qualification runs without unrelated user workloads competing for
@@ -109,7 +123,7 @@ the native runtime from the repository checkout.
 
 The qualification procedure exercises:
 
-- installation of the candidate runtime and Python wheel;
+- installation of the candidate runtime, converter, and application API;
 - checkpoint conversion and native execution at every supported resolution;
 - the prerecorded-video example;
 - the reviewed Ultralytics accuracy and performance workload; and
@@ -120,7 +134,7 @@ Its benchmark log, artifact identities, and before-and-after host context are
 retained rather than reproduced by release-specific measurement code.
 
 Qualification produces a normal test report and one evidence directory. The
-report identifies the candidate manifest, source commit, Pi environment,
+report identifies the release checksums, source commit, Pi environment,
 commands and outcomes, camera model when applicable, and the accuracy and
 performance evidence. A changed candidate digest invalidates the report and
 requires qualification of the new file.

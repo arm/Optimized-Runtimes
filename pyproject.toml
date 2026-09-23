@@ -24,7 +24,11 @@ version = {file = ["VERSION"]}
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-src = ["src/converter", "src/runtime/api/python/arm_yolo26n", "benchmarks/reporting"]
+src = [
+  "src/converter",
+  "src/runtime/api/python/arm_yolo26n",
+  "benchmarks/reporting",
+]
 
 [tool.ruff.lint]
 select = [
