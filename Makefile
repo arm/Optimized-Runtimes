@@ -106,7 +106,7 @@ help:
 	  '      Write detections and a rendered MP4 under examples/video/output/.' \
 	  '' \
 	  '  make example-camera [CAMERA=0] [CAMERA_ARGS="..."]' \
-	  '      Run the annotated Picamera2 live preview until interrupted.' \
+	  '      Run Picamera2 detection until interrupted; no display is required.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
 	  '      Prepare Ultralytics, then validate the selected runtime and model.' \
@@ -324,7 +324,7 @@ example-video: examples $(VIDEO)
 	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
 
 example-camera: examples
-	"$(EXAMPLES_PYTHON)" -m examples.picamera2.live \
+	"$(EXAMPLES_PYTHON)" -m examples.picamera2.detect \
 	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
 
 # Ultralytics benchmark
