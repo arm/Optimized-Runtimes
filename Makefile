@@ -5,10 +5,9 @@ SHELL := /bin/bash
 ROOT := $(CURDIR)
 DEV_VENV ?= $(ROOT)/.venv
 DEV_PYTHON := $(DEV_VENV)/bin/python
-DEV_CLANG_FORMAT := $(DEV_VENV)/bin/clang-format
 DEV_ENVIRONMENT := $(DEV_VENV)/pyvenv.cfg
 PYTHON ?= python3
-CLANG_FORMAT ?= clang-format
+CLANG_FORMAT ?= $(DEV_VENV)/bin/clang-format
 LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
 VERSION := $(strip $(file <$(ROOT)/VERSION))
@@ -336,7 +335,7 @@ lint: _dev
 	@# clang-format verifies the C and C++ source formatting.
 	@find src/runtime -type f \
 	  \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.inc' \) \
-	  -exec "$(DEV_CLANG_FORMAT)" --dry-run --Werror {} +
+	  -exec "$(CLANG_FORMAT)" --dry-run --Werror {} +
 	@# Ruff's formatter verifies the Python source formatting.
 	"$(DEV_PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
 	  benchmarks examples tests
