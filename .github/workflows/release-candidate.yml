@@ -110,14 +110,9 @@ jobs:
         run: |
           packages="$PWD/build/release/input"
           runtime="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz"
-          development="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64-dev.tar.gz"
-          test "$(find "$packages" -maxdepth 1 -type f | wc -l)" -eq 4
           test -f "$packages/$runtime"
           test -f "$packages/$runtime.sha256"
-          test -f "$packages/$development"
-          test -f "$packages/$development.sha256"
           (cd "$packages" && sha256sum --check "$runtime.sha256")
-          (cd "$packages" && sha256sum --check "$development.sha256")
 
           tar --list --gzip --file "$packages/$runtime" > build/release/runtime-files.txt
           grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so.0" \
@@ -137,13 +132,6 @@ jobs:
               "share/doc/arm-yolo26n/licenses/$dependency/LICENSE" \
               build/release/runtime-files.txt
           done
-
-          tar --list --gzip --file "$packages/$development" \
-            > build/release/development-files.txt
-          grep --fixed-strings --line-regexp "include/arm_yolo26n.h" \
-            build/release/development-files.txt
-          grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so" \
-            build/release/development-files.txt
 
       - name: Create draft release
         env:
@@ -167,7 +155,10 @@ jobs:
           This draft must not be published until the exact attached files have
           completed Raspberry Pi 5 qualification and human review.
           EOF
-          gh release create "v$RELEASE_VERSION" build/release/input/* \
+          runtime="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz"
+          gh release create "v$RELEASE_VERSION" \
+            "build/release/input/$runtime" \
+            "build/release/input/$runtime.sha256" \
             --draft \
             --target "$RELEASE_REVISION" \
             --title "Arm Runtime for YOLO26n $RELEASE_VERSION" \

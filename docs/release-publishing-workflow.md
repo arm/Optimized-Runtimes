@@ -12,11 +12,11 @@ The release publishes:
 | File | Contents |
 | --- | --- |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` | Runtime library, application API wheel, converter wheel, project license, and dependency licenses |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` | C header and unversioned linker name for C and C++ development |
-| A `.sha256` file beside each archive | Published archive identity |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz.sha256` | Published archive identity |
 
 GitHub supplies source archives for the release tag. The project does not
-publish a checkpoint or converted model.
+publish a prebuilt development archive, checkpoint, or converted model.
+Developers build from the tagged source.
 
 The supported Pi, operating system, Python, library, and camera boundaries are
 defined in [`supported-environment.md`](supported-environment.md). This
@@ -36,8 +36,8 @@ Before dispatching a candidate:
 
 The successful `main` build is the only release build. It runs linting, unit
 tests, checkpoint conversion, all-resolution end-to-end tests, and
-`make release`, then retains the final runtime and development archives for 30
-days. Candidate creation must reuse that artifact.
+`make release`, then retains its outputs for 30 days. Candidate creation must
+reuse the runtime archive from that artifact.
 
 ## 2. Create the draft candidate
 
@@ -47,8 +47,8 @@ confirm Black Duck review. The workflow:
 1. reads the version and source revision from `main`;
 2. requires successful Build and Black Duck runs for that exact revision;
 3. downloads the retained build artifact without rebuilding it;
-4. verifies both archives, checksums, and expected contents; and
-5. creates a draft `v<version>` release containing the four build files.
+4. verifies the runtime archive, checksum, and expected contents; and
+5. creates a draft `v<version>` release containing those two files.
 
 Do not publish the draft. Record its source revision, Build run, and Black Duck
 run from the generated release notes.
@@ -87,18 +87,17 @@ test "$(cat "$qualification/source/VERSION")" = "$version"
 
 gh release download "$release" --repo "$repository" \
   --dir "$qualification/downloads"
-test "$(find "$qualification/downloads" -maxdepth 1 -type f | wc -l)" -eq 4
+test "$(find "$qualification/downloads" -maxdepth 1 -type f | wc -l)" -eq 2
 
 cd "$qualification/downloads"
 sha256sum --check "arm-yolo26n-$version-rpi5-trixie-arm64.tar.gz.sha256"
-sha256sum --check "arm-yolo26n-$version-rpi5-trixie-arm64-dev.tar.gz.sha256"
 
 tar --extract --gzip \
   --file "arm-yolo26n-$version-rpi5-trixie-arm64.tar.gz" \
   --directory "$qualification/candidate"
 ```
 
-Record SHA-256 values for both archives, the runtime library, and both wheels.
+Record SHA-256 values for the archive, runtime library, and both wheels.
 Every later step must use these staged files. A changed digest invalidates the
 qualification and requires a new candidate.
 
@@ -421,7 +420,7 @@ a repository-specific reconciliation tool.
 Before publication, verify:
 
 1. the draft targets the qualified source revision;
-2. its original runtime and development assets still match the qualification
+2. its original runtime archive and checksum still match the qualification
    report;
 3. the qualification report and supporting evidence have been retained in the
    project's internal release records;
@@ -432,8 +431,8 @@ Before publication, verify:
 
 Publish the existing draft without rebuilding, replacing, or re-uploading its
 candidate assets. GitHub creates the release tag and source archives at this
-point. After publication, verify the tag target, all four attached files, their
-checksums, and the user-facing installation commands.
+point. After publication, verify the tag target, both attached files, the
+checksum, and the user-facing installation commands.
 
 If any candidate digest changes, qualification is invalid. If any required
 check is incomplete or rejected, leave the release as a draft.
