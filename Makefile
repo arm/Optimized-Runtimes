@@ -54,7 +54,9 @@ CAMERA_ARGS ?=
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
 DATA ?= coco128.yaml
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
-BENCHMARK_OUTPUT ?= $(ROOT)/benchmarks/reporting/output/current
+# Evidence is immutable, so each default invocation needs a fresh directory.
+BENCHMARK_RUN_ID := $(shell date -u +%Y%m%dT%H%M%S%NZ)-$(shell printf '%.12s' "$(SOURCE_REVISION)")
+BENCHMARK_OUTPUT ?= $(ROOT)/benchmarks/reporting/output/$(BENCHMARK_RUN_ID)
 
 # Development checks
 MODELS ?= $(ROOT)/dist/models/yolo26n-320:$(ROOT)/dist/models/yolo26n-480:$(ROOT)/dist/models/yolo26n-640:$(ROOT)/dist/models/yolo26n-800:$(ROOT)/dist/models/yolo26n-960:$(ROOT)/dist/models/yolo26n-1280
@@ -328,11 +330,18 @@ example-camera: examples
 	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
 
 # Ultralytics benchmark
-.PHONY: _ultralytics-prepare ultralytics-benchmark
-_ultralytics-prepare:
+# Recreate the benchmark environment only when one of its installed inputs
+# changes. pyvenv.cfg is the completion artifact created by Python itself.
+$(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
+    benchmarks/ultralytics/requirements.txt requirements-build.txt \
+    pyproject.toml VERSION \
+    benchmarks/ultralytics/arm_yolo26n_pi5_backend.py \
+    benchmarks/ultralytics/patches/ultralytics-8.4.108-arm-yolo26-pi5.patch \
+    $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
-ultralytics-benchmark: _ultralytics-prepare
+.PHONY: ultralytics-benchmark
+ultralytics-benchmark: $(ULTRALYTICS_VENV)/pyvenv.cfg
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \

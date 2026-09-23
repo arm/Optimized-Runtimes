@@ -17,7 +17,7 @@ if [[ ! -r /proc/device-tree/model ]] || ! grep -q 'Raspberry Pi 5' /proc/device
   exit 1
 fi
 
-python3 -m venv "$venv"
+python3 -m venv --clear "$venv"
 wheel_directory=$(mktemp -d)
 trap 'rm -rf "$wheel_directory"' EXIT
 PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install --require-hashes \

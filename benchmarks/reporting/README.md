@@ -12,9 +12,17 @@ Run the benchmark with a new evidence directory for each result:
 make ultralytics-benchmark \
   RUNTIME=/path/to/libarm-yolo26n.so.0 \
   MODEL=/path/to/converted-model \
-  DATA=/path/to/dataset.yaml \
-  BENCHMARK_OUTPUT=benchmarks/reporting/output/current
+  DATA=/path/to/dataset.yaml
 ```
+
+By default, Make writes each run to a new UTC-timestamped directory under
+`benchmarks/reporting/output/`, with the source revision included in its name.
+Set `BENCHMARK_OUTPUT=/path/to/new-directory` when a specific evidence location
+is required. The recorder never replaces an existing result.
+
+The first run prepares the pinned environment under
+`benchmarks/ultralytics/.venv`. Later runs reuse it unless an installed
+requirement, integration patch, backend, or application source file changes.
 
 The Ultralytics benchmark command passes its unchanged validation process to
 `record_benchmark`. The recorder continues to display that output while
