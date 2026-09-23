@@ -35,8 +35,7 @@ performance claims; those checks belong in hardware validation.
 ## Running the suites
 
 `make lint` and the test targets prepare the hash-locked development
-environment under `.venv/` when it is missing or outdated. Explicit `PYTHON`
-and `CLANG_FORMAT` selections continue to use a caller-managed environment.
+environment under `.venv/` when it is missing or outdated.
 `make lint` runs formatting, static analysis, typing, import-boundary, and
 syntax checks. Pytest discovers the portable, checkpoint-backed, and
 end-to-end suites from `tests/unit`, `tests/converter`, and `tests/end_to_end`

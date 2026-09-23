@@ -21,9 +21,8 @@ use `--no-build-isolation`, so their build requirements are not downloaded
 implicitly.
 
 Repository lint and test targets install `requirements-dev.txt` into `.venv/`
-through a hidden stamped Make prerequisite. The environment is recreated only
-when it is absent or the committed development lock changes. Explicit
-`PYTHON` and `CLANG_FORMAT` selections are respected for caller-managed tools.
+through a hidden Make prerequisite. The environment is recreated only when it
+is absent or the committed development lock changes.
 
 To update dependencies, install `requirements-lock.txt` into a dedicated
 Python 3.13 environment. Then run `make requirements-lock` with

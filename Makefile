@@ -4,19 +4,9 @@ SHELL := /bin/bash
 # Shared commands and repository paths
 ROOT := $(CURDIR)
 DEV_VENV ?= $(ROOT)/.venv
-DEV_ENV_STAMP := $(DEV_VENV)/.requirements-dev.stamp
-ifeq ($(origin PYTHON), undefined)
 DEV_PYTHON := $(DEV_VENV)/bin/python
-DEV_PYTHON_PREREQUISITE := $(DEV_ENV_STAMP)
-else
-DEV_PYTHON := $(PYTHON)
-endif
-ifeq ($(origin CLANG_FORMAT), undefined)
 DEV_CLANG_FORMAT := $(DEV_VENV)/bin/clang-format
-DEV_CLANG_FORMAT_PREREQUISITE := $(DEV_ENV_STAMP)
-else
-DEV_CLANG_FORMAT := $(CLANG_FORMAT)
-endif
+DEV_ENVIRONMENT := $(DEV_VENV)/pyvenv.cfg
 PYTHON ?= python3
 CLANG_FORMAT ?= clang-format
 LOCK_COMPILER ?= pip-compile
@@ -53,7 +43,7 @@ RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
 # Examples
 EXAMPLES_VENV ?= $(ROOT)/examples/.venv
 EXAMPLES_PYTHON := $(EXAMPLES_VENV)/bin/python
-EXAMPLES_ENV_STAMP := $(EXAMPLES_VENV)/.arm-yolo26n-environment.stamp
+EXAMPLES_ENVIRONMENT := $(EXAMPLES_VENV)/pyvenv.cfg
 DEFAULT_VIDEO := $(ROOT)/downloads/media/test-video.mp4
 VIDEO ?= $(DEFAULT_VIDEO)
 VIDEO_URL := https://raw.githubusercontent.com/google-ai-edge/mediapipe/0ad5a71bcdff3d756dc5b07f93765aaeb4152538/mediapipe/examples/desktop/object_detection/test_video.mp4
@@ -63,7 +53,6 @@ VIDEO_RENDERED ?= $(ROOT)/examples/video/output/rendered.mp4
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
-ULTRALYTICS_ENV_STAMP := $(ULTRALYTICS_VENV)/.arm-yolo26n-environment.stamp
 DATA ?= coco128.yaml
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 BENCHMARK_OUTPUT ?= $(ROOT)/benchmarks/reporting/output/current
@@ -248,20 +237,18 @@ _release-api:
 
 # Examples
 .PHONY: examples example-video
-examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin $(EXAMPLES_ENV_STAMP)
+examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin $(EXAMPLES_ENVIRONMENT)
 	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
 	  "$(RUNTIME)" "$(MODEL)" "$(EXAMPLES_VENV)"
 
-$(EXAMPLES_ENV_STAMP): requirements-build.txt requirements.txt pyproject.toml \
+$(EXAMPLES_ENVIRONMENT): requirements-build.txt requirements.txt pyproject.toml \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	@# Picamera2 is installed by Raspberry Pi OS, so camera examples must see system packages.
-	@cmake -E remove_directory "$(EXAMPLES_VENV)"
 	"$(PYTHON)" -m venv --system-site-packages "$(EXAMPLES_VENV)"
 	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install --require-hashes \
 	  --requirement requirements-build.txt --requirement requirements.txt
 	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install \
 	  --no-deps --no-build-isolation "$(ROOT)"
-	@cmake -E touch "$@"
 
 $(DEFAULT_CHECKPOINT):
 	@printf 'No checkpoint was supplied; downloading the pinned checkpoint to:\n  %s\n' "$@"
@@ -300,9 +287,7 @@ $(MODEL)/manifest.json $(MODEL)/model.bin &: $(CHECKPOINT)
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.export_yolo26n \
 	  --checkpoint "$(CHECKPOINT)" --resolution "$(RESOLUTION)" --output-dir "$(MODEL)"
 
-# The standalone end-to-end workflow prepares every default supported
-# resolution. Explicit MODELS outside the default model root remain
-# caller-provided artifacts.
+# Build missing models whose default directory names identify their resolution.
 $(DEFAULT_MODEL_ROOT)/yolo26n-%/manifest.json $(DEFAULT_MODEL_ROOT)/yolo26n-%/model.bin &: $(CHECKPOINT)
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -m converter.export_yolo26n \
 	  --checkpoint "$(CHECKPOINT)" --resolution "$*" --output-dir "$(@D)"
@@ -324,16 +309,8 @@ example-video: examples $(VIDEO)
 
 # Ultralytics benchmark
 .PHONY: _ultralytics-prepare ultralytics-benchmark
-_ultralytics-prepare: $(ULTRALYTICS_ENV_STAMP)
-
-$(ULTRALYTICS_ENV_STAMP): benchmarks/ultralytics/patch.sh \
-    benchmarks/ultralytics/requirements.txt requirements-build.txt pyproject.toml \
-    benchmarks/ultralytics/arm_yolo26n_pi5_backend.py \
-    benchmarks/ultralytics/patches/ultralytics-8.4.108-arm-yolo26-pi5.patch \
-    $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
-	@cmake -E remove_directory "$(ULTRALYTICS_VENV)"
+_ultralytics-prepare:
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
-	@cmake -E touch "$@"
 
 ultralytics-benchmark: _ultralytics-prepare
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
@@ -346,20 +323,16 @@ ultralytics-benchmark: _ultralytics-prepare
 	  -- $(YOLO_ARGS)
 
 # Development checks
-.PHONY: _dev-python-environment _dev-lint-environment \
-	lint test-unit test-converter test-end-to-end coverage
-_dev-python-environment: $(DEV_PYTHON_PREREQUISITE)
+.PHONY: _dev lint test-unit test-converter test-end-to-end coverage
+_dev: $(DEV_ENVIRONMENT)
 
-_dev-lint-environment: $(DEV_PYTHON_PREREQUISITE) $(DEV_CLANG_FORMAT_PREREQUISITE)
-
-$(DEV_ENV_STAMP): requirements-dev.txt
+$(DEV_ENVIRONMENT): requirements-dev.txt
 	@cmake -E remove_directory "$(DEV_VENV)"
 	"$(PYTHON)" -m venv "$(DEV_VENV)"
 	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip install --require-hashes \
 	  --requirement requirements-dev.txt
-	@cmake -E touch "$@"
 
-lint: _dev-lint-environment
+lint: _dev
 	@# clang-format verifies the C and C++ source formatting.
 	@find src/runtime -type f \
 	  \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.inc' \) \
@@ -386,14 +359,14 @@ lint: _dev-lint-environment
 	@# Git detects whitespace errors introduced by the current change.
 	git diff --check
 
-test-unit: _dev-python-environment
+test-unit: _dev
 	PYTHONPATH="$(TEST_PYTHONPATH)" "$(DEV_PYTHON)" -m pytest tests/unit
 
-test-converter: _dev-python-environment $(CHECKPOINT)
+test-converter: _dev $(CHECKPOINT)
 	PYTHONPATH="$(TEST_PYTHONPATH)" YOLO26N_CHECKPOINT="$(CHECKPOINT)" \
 	  "$(DEV_PYTHON)" -m pytest tests/converter
 
-test-end-to-end: _dev-python-environment $(MODEL_ARTIFACTS) test-converter runtime
+test-end-to-end: _dev $(MODEL_ARTIFACTS) test-converter runtime
 	YOLO26N_RUNTIME_API_TEST_MODEL="$(NATIVE_API_TEST_MODEL)" \
 	  ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure \
 	  --tests-regex '^yolo26n_runtime_api_behavior$$'
@@ -401,7 +374,7 @@ test-end-to-end: _dev-python-environment $(MODEL_ARTIFACTS) test-converter runti
 	  YOLO26N_E2E_RUNTIME="$(RUNTIME)" YOLO26N_E2E_MODELS="$(MODELS)" \
 	  "$(DEV_PYTHON)" -m pytest tests/end_to_end
 
-coverage: _dev-python-environment $(CHECKPOINT) $(MODEL_ARTIFACTS)
+coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	@# Build the runtime with coverage instrumentation and discard stale counters.
 	cmake -S src/runtime -B "$(COVERAGE_RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Debug -DYOLO26N_ENABLE_COVERAGE=ON

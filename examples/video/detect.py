@@ -195,12 +195,15 @@ def main() -> int:
         records, summary = _run_model(detector, video)
     _write_results(args, video, records, summary)
     print(
-        f"frames={summary['frames']} "
-        f"decode_resize_ms={summary['decode_resize_ms']:.2f} "
-        f"preprocess_mean_ms={summary['preprocess_mean_ms']:.2f} "
-        f"inference_mean_ms={summary['inference_mean_ms']:.2f} "
-        f"postprocess_mean_ms={summary['postprocess_mean_ms']:.2f} "
-        f"model_fps={summary['model_fps']:.2f}"
+        "Detection performance:\n"
+        f"  throughput: {summary['model_fps']:.2f} FPS\n"
+        f"  detection time: {summary['model_mean_ms']:.2f} ms/frame\n"
+        f"  frames: {summary['frames']}\n"
+        "  mean timing: "
+        f"preprocess {summary['preprocess_mean_ms']:.2f} ms, "
+        f"inference {summary['inference_mean_ms']:.2f} ms, "
+        f"postprocess {summary['postprocess_mean_ms']:.2f} ms\n"
+        f"  video decode and resize: {summary['decode_resize_ms']:.2f} ms total"
     )
     return 0
 

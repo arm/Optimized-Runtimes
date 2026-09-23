@@ -34,17 +34,29 @@ The project consists of:
 - `examples/picamera2` - Python example which performs object detection on live video from a Pi Camera
 - `ultralytics/` - source and scripts to execute the Ultralytics benchmark
 
-## Run through Ultralytics
+## Run through Ultralytics (this should probably get moved to the ultralytics folder)
 
-Run validation with a selected runtime and converted model:
+Assemble the built YOLO26n bundle into the Arm Raspberry Pi 5
+Ultralytics package:
 
 ```bash
-make ultralytics-benchmark \
-  RUNTIME="$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
-  MODEL="$PWD/dist/models/yolo26n-640"
+make ultralytics-package
 ```
 
-The command prepares the pinned Ultralytics environment and repository-owned
-backend when needed, then records benchmark evidence under
-`benchmarks/reporting/output/`. Additional Ultralytics validation arguments may
-be supplied through `YOLO_ARGS`.
+Install the pinned Python environment and repository-owned
+`ArmYolo26Pi5Backend`, then benchmark the package directly:
+
+```bash
+make ultralytics-install \
+  WORKSPACE=dist/arm-yolo26n-pi5-ultralytics
+make ultralytics-benchmark \
+  WORKSPACE=dist/arm-yolo26n-pi5-ultralytics
+```
+
+The installer verifies every package artifact, installs the source-tracked
+native runtime wrapper, and registers the source-tracked backend with
+Ultralytics 8.4.108. The backend is selected by the model-specific package
+suffix. YOLO26n resolves the verified YOLO26n bundle from its descriptor. No
+runtime environment variables are required.
+Additional Ultralytics validation arguments may be appended to the benchmark
+command.
