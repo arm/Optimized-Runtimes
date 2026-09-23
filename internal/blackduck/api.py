@@ -1,4 +1,10 @@
-"""Small Black Duck REST client used by dependency-closure reconciliation."""
+"""Provide the HTTP boundary used to reconcile Black Duck scan results.
+
+The Black Duck scan action runs Detect, but it does not expose the API
+operations needed to link project versions or update component metadata.
+``reconcile`` uses this module for authentication, requests, and collection
+pagination; dependency policy remains in ``reconcile.py``.
+"""
 
 from __future__ import annotations
 

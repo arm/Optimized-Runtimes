@@ -1,14 +1,14 @@
 # Black Duck scanning scheme
 
-Black Duck reporting is split by dependency closure so that a reviewer can tell
-which dependencies are incorporated into the runtime library, needed by an application,
-used to build the project, or installed only for Ultralytics benchmarking. A
-single aggregate BOM obscures these distinctions.
+Black Duck reporting is split by dependency closure so that a reviewer can
+tell which dependencies are incorporated into the runtime library, needed by
+an application, used to build the project, or installed only for Ultralytics
+benchmarking. A single aggregate BOM obscures these distinctions.
 
 ## Project and version structure
 
-All closures remain versions of the existing `Loom` project. For a source
-revision `<revision>`, create these versions:
+All closures remain versions of the Black Duck project configured for this
+repository. For a source revision `<revision>`, create these versions:
 
 | Version | Question answered |
 | --- | --- |
@@ -18,8 +18,8 @@ revision `<revision>`, create these versions:
 | `<revision>-ultralytics` | What must be installed to run the Ultralytics benchmark? |
 
 The examples, build, and Ultralytics versions reference the runtime version as
-a Black Duck subproject. The runtime-library dependency inventory therefore has one
-owner and is not copied into each parent BOM.
+a Black Duck subproject. The runtime-library dependency inventory therefore
+has one owner and is not copied into each parent BOM.
 
 Separate Black Duck projects are unnecessary unless these closures later gain
 independent release lifecycles, ownership, or policy requirements.
@@ -113,7 +113,7 @@ reviewed inventory, which is represented by Black Duck component identities in
 report. Pip and the hash-locked Python build requirement are discovered by the
 package scan and receive the same treatment. This retains security and
 operational information without treating build tools as code distributed with
-Loom.
+the project.
 
 Runtime release attribution is generated from the runtime version, where these
 tools do not appear. Attribution inclusion is controlled separately from
@@ -212,7 +212,20 @@ Configure the environment with:
   project;
 - `BLACKDUCK_URL`, a variable containing the Black Duck server URL;
 - `BLACKDUCK_PROJECT_ID`, a variable containing the stable project UUID; and
-- optionally `BLACKDUCK_PROJECT_NAME`, if the project is renamed from `Loom`.
+- `BLACKDUCK_PROJECT_NAME`, a variable containing the exact project name.
+
+Create these settings in the GitHub repository:
+
+1. Open **Settings > Environments** and create an environment named
+   `blackduck`.
+2. Restrict that environment's deployment branches to `main`.
+3. Add `BLACKDUCK_TOKEN` under **Environment secrets**.
+4. Add `BLACKDUCK_URL`, `BLACKDUCK_PROJECT_ID`, and
+   `BLACKDUCK_PROJECT_NAME` under **Environment variables**.
+
+The token must be a Black Duck API token for an account permitted to create
+and update versions in the configured project. Keeping all four values on the
+branch-restricted environment prevents pull-request code from receiving them.
 
 Each scan uses the first eight characters of the merge revision in both the
 version and code-location names. The runtime scan uses `make runtime-configure`
@@ -222,11 +235,16 @@ source upload and snippet matching. Each Python scan stages exactly one
 hash-locked requirements file, installs it into an isolated environment, and
 requires Black Duck's high-accuracy PIP native inspector.
 
-After all scans finish, `internal/blackduck/reconcile.py` establishes the three
-runtime subproject relationships, adds the reviewed system build tools,
+After all scans finish, `internal/blackduck/reconcile.py` performs the parts of
+the dependency-closure model that Detect does not express: it establishes the
+three runtime subproject relationships, adds the reviewed system build tools,
 applies component usage and Notices settings, and verifies that the resulting
 BOMs still match their intended closures. It reports the known Torch and
 Torchvision mapping gap in the GitHub job summary.
+
+`internal/blackduck/api.py` contains only the authentication, request, and
+pagination boundary used for those operations. Policy remains in
+`reconcile.py` and this document.
 
 Two scanning paths will serve different purposes.
 

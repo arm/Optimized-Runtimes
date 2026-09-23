@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Apply and verify the repository's Black Duck dependency-closure model."""
+"""Complete and verify the dependency-closure model after Detect finishes.
+
+Detect creates the four revision-specific versions and populates their
+discovered components. It cannot establish the runtime subproject links, add
+the reviewed system build tools, or apply the repository's component usage and
+Notices decisions. This command performs those operations through Black Duck's
+API and fails if the resulting BOMs no longer match the documented closures.
+"""
 
 from __future__ import annotations
 

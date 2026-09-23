@@ -1,5 +1,8 @@
 name: Black Duck
 
+# Scan the four dependency closures documented in
+# docs/black-duck-scanning-scheme.md. This workflow receives a Black Duck API
+# token, so it runs only for trusted code already merged to main.
 on:
   push:
     branches:
@@ -25,6 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # CMake fetches the four projects linked into the runtime library.
+          # Scan those source trees without generated build files or unrelated
+          # repository content.
           - closure: runtime
             directory: build/blackduck/runtime/sources
             distribution: EXTERNAL
@@ -33,6 +39,8 @@ jobs:
               --detect.blackduck.signature.scanner.upload.source.mode=false
               --detect.blackduck.signature.scanner.snippet.matching=NONE
               --detect.blackduck.signature.scanner.license.search=true
+          # Scan each Python closure from one hash-locked input and an isolated
+          # environment so unrelated installed packages cannot enter its BOM.
           - closure: examples
             directory: build/blackduck/examples
             distribution: EXTERNAL
@@ -68,7 +76,7 @@ jobs:
               --detect.accuracy.required=PIP
     env:
       PIP_CONFIG_FILE: /dev/null
-      DETECT_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME || 'Loom' }}
+      DETECT_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME }}
       DETECT_PROJECT_VERSION_DISTRIBUTION: ${{ matrix.distribution }}
       DETECT_PROJECT_VERSION_LICENSE: Apache License 2.0
       DETECT_PROJECT_VERSION_UPDATE: "true"
@@ -103,13 +111,18 @@ jobs:
         run: |
           revision="${GITHUB_SHA:0:8}"
           echo "DETECT_PROJECT_VERSION_NAME=${revision}-${CLOSURE}" >> "$GITHUB_ENV"
-          echo "DETECT_CODE_LOCATION_NAME=loom-${CLOSURE}-${revision}" >> "$GITHUB_ENV"
+          echo "DETECT_CODE_LOCATION_NAME=arm-yolo26n-${CLOSURE}-${revision}" >> "$GITHUB_ENV"
 
       - name: Require Black Duck configuration
         env:
+          BLACKDUCK_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME }}
           BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
           BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
         run: |
+          test -n "$BLACKDUCK_PROJECT_NAME" || {
+            echo 'BLACKDUCK_PROJECT_NAME is not configured' >&2
+            exit 1
+          }
           test -n "$BLACKDUCK_URL" || {
             echo 'BLACKDUCK_URL is not configured' >&2
             exit 1
@@ -161,6 +174,10 @@ jobs:
           project_directory: ${{ matrix.directory }}
           detect_args: ${{ matrix.detect_args }}
 
+  # Detect discovers components, but it cannot apply this repository's
+  # cross-version subproject links, reviewed usage and Notices settings, or
+  # manual system-tool inventory. Apply and verify those decisions after all
+  # four scans complete.
   reconcile:
     if: github.ref == 'refs/heads/main'
     name: Reconcile closure BOMs
