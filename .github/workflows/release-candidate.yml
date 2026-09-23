@@ -1,0 +1,191 @@
+# Promote the packages retained by a successful main build into a draft GitHub
+# release after its Black Duck result has been reviewed. This workflow verifies
+# the retained files and never rebuilds them.
+name: Create release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      black_duck_reviewed:
+        description: Confirm that the successful Black Duck result and BOM were reviewed
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    if: github.ref == 'refs/heads/main'
+    name: Create draft release
+    runs-on: ubuntu-24.04-arm
+    environment: release-candidate
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify release selection
+        env:
+          BLACK_DUCK_REVIEWED: ${{ inputs.black_duck_reviewed }}
+        run: |
+          release_revision="$(git rev-parse HEAD)"
+          release_version="$(cat VERSION)"
+          test "$release_revision" = "$GITHUB_SHA" || {
+            echo 'checked-out commit does not match the workflow commit' >&2
+            exit 1
+          }
+          [[ "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'VERSION must use major.minor.patch form' >&2
+            exit 1
+          }
+          test "$BLACK_DUCK_REVIEWED" = true || {
+            echo 'Black Duck review must be confirmed' >&2
+            exit 1
+          }
+          if gh release view "v$release_version" >/dev/null 2>&1; then
+            echo "release v$release_version already exists" >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$release_version" \
+              >/dev/null 2>&1; then
+            echo "tag v$release_version already exists" >&2
+            exit 1
+          fi
+          {
+            echo "RELEASE_REVISION=$release_revision"
+            echo "RELEASE_VERSION=$release_version"
+          } >> "$GITHUB_ENV"
+
+      - name: Find successful build and Black Duck runs
+        id: find_runs
+        run: |
+          build="$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+            -f head_sha="$RELEASE_REVISION" -f event=push -f status=success \
+            -f per_page=100 \
+            --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
+          read -r build_run_id build_run_url <<<"$build"
+          test -n "$build_run_id" && test "$build_run_id" != null || {
+            echo 'no successful main build exists for the selected commit' >&2
+            exit 1
+          }
+
+          black_duck="$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/blackduck.yml/runs" \
+            -f head_sha="$RELEASE_REVISION" -f event=push -f status=success \
+            -f per_page=100 \
+            --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
+          read -r black_duck_run_id black_duck_run_url <<<"$black_duck"
+          test -n "$black_duck_run_id" && test "$black_duck_run_id" != null || {
+            echo 'no successful Black Duck run exists for the selected commit' >&2
+            exit 1
+          }
+
+          {
+            echo "build_run_id=$build_run_id"
+            echo "build_run_url=$build_run_url"
+            echo "black_duck_run_url=$black_duck_run_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download retained build packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: main-build-${{ github.sha }}
+          path: build/release/input
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.find_runs.outputs.build_run_id }}
+
+      - name: Verify retained release packages
+        run: |
+          packages="$PWD/build/release/input"
+          runtime="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz"
+          development="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64-dev.tar.gz"
+          test "$(find "$packages" -maxdepth 1 -type f | wc -l)" -eq 4
+          test -f "$packages/$runtime"
+          test -f "$packages/$runtime.sha256"
+          test -f "$packages/$development"
+          test -f "$packages/$development.sha256"
+          (cd "$packages" && sha256sum --check "$runtime.sha256")
+          (cd "$packages" && sha256sum --check "$development.sha256")
+
+          tar --list --gzip --file "$packages/$runtime" > build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so.0" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "lib/libarm-yolo26n.so.$RELEASE_VERSION" build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "python/arm_yolo26n_converter-$RELEASE_VERSION-py3-none-any.whl" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp "share/doc/arm-yolo26n/LICENSE" \
+            build/release/runtime-files.txt
+          for dependency in cpuinfo fxdiv pthreadpool xnnpack; do
+            grep --fixed-strings --line-regexp \
+              "share/doc/arm-yolo26n/licenses/$dependency/LICENSE" \
+              build/release/runtime-files.txt
+          done
+
+          tar --list --gzip --file "$packages/$development" \
+            > build/release/development-files.txt
+          grep --fixed-strings --line-regexp "include/arm_yolo26n.h" \
+            build/release/development-files.txt
+          grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so" \
+            build/release/development-files.txt
+
+      - name: Create draft release
+        env:
+          BUILD_RUN_URL: ${{ steps.find_runs.outputs.build_run_url }}
+          BLACK_DUCK_RUN_URL: ${{ steps.find_runs.outputs.black_duck_run_url }}
+        run: |
+          cat > build/release/notes.md <<EOF
+          ## Raspberry Pi 5 release candidate
+
+          Qualification status: pending
+
+          Source commit: \`$RELEASE_REVISION\`
+
+          [Build and test run]($BUILD_RUN_URL)
+
+          [Black Duck run]($BLACK_DUCK_RUN_URL)
+
+          Stage the candidate in a clean qualification directory:
+
+          ~~~sh
+          candidate="arm-yolo26n-$RELEASE_VERSION-candidate"
+          mkdir "\$candidate"
+          tar --extract --gzip \
+            --file arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz \
+            --directory "\$candidate"
+          runtime="\$candidate/lib/libarm-yolo26n.so.0"
+          test -r "\$runtime"
+          python3 -m venv .venv
+          .venv/bin/python -m pip install \
+            "\$candidate/python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl" \
+            "\$candidate/python/arm_yolo26n_converter-$RELEASE_VERSION-py3-none-any.whl"
+          ~~~
+
+          The native library is staged rather than installed system-wide. Pass
+          the value of \`runtime\` to the Python API's \`runtime\` argument or an
+          example's \`--runtime\` option.
+
+          This draft must not be published until the exact attached files have
+          completed Raspberry Pi 5 qualification and human review.
+          EOF
+          gh release create "v$RELEASE_VERSION" build/release/input/* \
+            --draft \
+            --target "$RELEASE_REVISION" \
+            --title "Arm Runtime for YOLO26n $RELEASE_VERSION" \
+            --notes-file build/release/notes.md

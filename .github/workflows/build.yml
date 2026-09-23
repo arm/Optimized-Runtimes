@@ -44,13 +44,6 @@ jobs:
         run: make lint PYTHON=build/ci/venv/bin/python CLANG_FORMAT=build/ci/venv/bin/clang-format
       - name: Unit tests
         run: make test-unit PYTHON=build/ci/venv/bin/python
-      - name: Build Python package
-        run: |
-          python3 -m venv build/ci/package-venv
-          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip install \
-            --require-hashes --requirement requirements-build.txt
-          PIP_CONFIG_FILE=/dev/null build/ci/package-venv/bin/python -m pip wheel \
-            --no-deps --no-build-isolation --wheel-dir dist/packages .
       - name: Download supported converter fixture
         run: |
           mkdir -p build/ci
@@ -72,9 +65,22 @@ jobs:
               CHECKPOINT=build/ci/yolo26n.pt \
               RESOLUTION="$resolution"
           done
-      - name: End-to-end tests and native package
+      - name: End-to-end tests and release packages
         run: |
-          make test-end-to-end runtime-package \
+          make test-end-to-end release \
             PYTHON=build/ci/venv/bin/python \
             CHECKPOINT=build/ci/yolo26n.pt \
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
+      - name: Retain main build packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: main-build-${{ github.sha }}
+          path: |
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz.sha256
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

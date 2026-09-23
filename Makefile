@@ -24,6 +24,11 @@ RUNTIME_DIST ?= $(ROOT)/dist/runtime
 DEFAULT_RUNTIME := $(RUNTIME_DIST)/lib/libarm-yolo26n.so.0
 RUNTIME ?= $(DEFAULT_RUNTIME)
 PACKAGE_DIST ?= $(ROOT)/dist/packages
+PYTHON_API_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n-$(VERSION)-py3-none-any.whl
+CONVERTER_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n_converter-$(VERSION)-py3-none-any.whl
+RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.gz
+RELEASE_DEVELOPMENT_PACKAGE := \
+	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
 RUNTIME_RELEASE ?= v$(VERSION)
 RUNTIME_ARCHIVE := arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
 RUNTIME_URL ?= https://github.com/Arm-Debug/yolo-raspi-research/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
@@ -74,12 +79,12 @@ help:
 	  '      and verify the pinned official YOLO26n checkpoint.' \
 	  '' \
 	  '  make runtime' \
-	  '      Configure, compile, test, and write the native runtime to dist/runtime/.' \
+	  '      Configure, compile, test, and write the runtime to dist/runtime/.' \
 	  '  make runtime-configure' \
-	  '      Configure the native build and fetch its pinned dependencies.' \
+	  '      Configure the runtime build and fetch its pinned dependencies.' \
 	  '' \
-	  '  make runtime-package' \
-	  '      Produce CPack runtime and development archives under dist/packages/.' \
+	  '  make release' \
+	  '      Build the runtime, converter, and Python API release packages.' \
 	  '' \
 	  '  make requirements-lock' \
 	  '      Regenerate the hash-locked Python dependency closures.' \
@@ -102,13 +107,13 @@ help:
 	  '      Run source formatting, static analysis, typing, and syntax checks.' \
 	  '' \
 	  '  make test-unit' \
-	  '      Run unit and command-interface tests without the native runtime.' \
+	  '      Run unit and command-interface tests without the runtime.' \
 	  '' \
 	  '  make test-converter CHECKPOINT=/path/to/yolo26n.pt' \
 	  '      Run checkpoint-backed converter behavior tests.' \
 	  '' \
 	  '  make test-end-to-end CHECKPOINT=... RUNTIME=... MODELS=/model/320:/model/480:...' \
-	  '      Run converter, native runtime, and example behavior tests.' \
+	  '      Run converter, runtime, and example behavior tests.' \
 	  '' \
 	  '  make coverage CHECKPOINT=... MODELS=/model/320:/model/480:...' \
 	  '      Generate diagnostic Python and native coverage reports.'
@@ -147,8 +152,8 @@ model-check: $(CHECKPOINT)
 	  --resolution "$(RESOLUTION)" \
 	  --output "$(MODEL_VALIDATION)"
 
-# Native runtime
-.PHONY: runtime-configure runtime runtime-package
+# Runtime
+.PHONY: runtime-configure runtime
 runtime-configure:
 	cmake -S src/runtime -B "$(RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Release
@@ -159,9 +164,59 @@ runtime: runtime-configure
 	ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure
 	cmake --install "$(RUNTIME_BUILD)" --prefix "$(RUNTIME_DIST)" --component runtime
 
-runtime-package: runtime
+# Release packaging
+.PHONY: release
+release: runtime _release-converter _release-api
+	@# The runtime archive combines CMake's installed runtime with both wheels.
+	@# The development archive contains CMake's header and linker name. A staging
+	@# directory keeps those layouts separate and makes publication into
+	@# dist/packages atomic.
+	@staging="$$(mktemp -d --tmpdir="$(PACKAGE_DIST)" .release.XXXXXX)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  mkdir "$$staging/runtime" "$$staging/development"; \
+	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/runtime" \
+	    --component runtime; \
+	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/development" \
+	    --component development; \
+	  install --directory "$$staging/runtime/python"; \
+	  install --mode 0644 "$(PYTHON_API_PACKAGE)" "$(CONVERTER_PACKAGE)" \
+	    "$$staging/runtime/python/"; \
+	  tar --create --gzip --file "$$staging/$(notdir $(RELEASE_PACKAGE))" \
+	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+	    --directory "$$staging/runtime" lib python share; \
+	  tar --create --gzip \
+	    --file "$$staging/$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+	    --directory "$$staging/development" include lib; \
+	  cd "$$staging"; \
+	  sha256sum "$(notdir $(RELEASE_PACKAGE))" \
+	    > "$(notdir $(RELEASE_PACKAGE)).sha256"; \
+	  sha256sum "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    > "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256"; \
+	  mv "$(notdir $(RELEASE_PACKAGE))" "$(notdir $(RELEASE_PACKAGE)).sha256" \
+	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256" "$(PACKAGE_DIST)/"
+
+# These targets build only repository source. They neither install nor resolve
+# dependencies; callers provide the hash-locked build environment defined by
+# requirements-build.txt. CI installs that environment with --require-hashes.
+.PHONY: _release-converter
+_release-converter:
 	mkdir -p "$(PACKAGE_DIST)"
-	cpack --config "$(RUNTIME_BUILD)/CPackConfig.cmake" -B "$(PACKAGE_DIST)"
+	@# Give setuptools a self-contained project without writing build state into
+	@# the converter source directory or duplicating the repository version.
+	@staging="$$(mktemp -d)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  cp src/converter/*.py src/converter/pyproject.toml \
+	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
+	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
+
+.PHONY: _release-api
+_release-api:
+	mkdir -p "$(PACKAGE_DIST)"
+	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
 .PHONY: examples example-video

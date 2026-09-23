@@ -1,7 +1,7 @@
 # Build the model-independent YOLO26n runtime for its one supported native
 # target. This project owns dependency acquisition, native compilation, ABI
-# verification, installation, and CPack publication. Model conversion remains
-# a separate operation and does not rebuild this target.
+# verification, and installation. Model conversion remains a separate operation
+# and does not rebuild this target.
 cmake_minimum_required(VERSION 3.24)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" yolo26n_version LIMIT_COUNT 1)
 if(NOT yolo26n_version MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
@@ -177,7 +177,7 @@ if(BUILD_TESTING)
   set_tests_properties(yolo26n_runtime_api_behavior PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
-# Installation and archive publication
+# Installation
 install(TARGETS arm_yolo26n
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   COMPONENT runtime
@@ -191,13 +191,3 @@ install(DIRECTORY licenses/
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/arm-yolo26n"
   COMPONENT runtime)
-
-set(CPACK_PACKAGE_NAME arm-yolo26n)
-set(CPACK_PACKAGE_FILE_NAME "arm-yolo26n-rpi5-${PROJECT_VERSION}")
-set(CPACK_GENERATOR TGZ)
-set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
-set(CPACK_COMPONENTS_ALL runtime development)
-set(CPACK_COMPONENT_DEVELOPMENT_DEPENDS runtime)
-set(CPACK_PACKAGE_CHECKSUM SHA256)
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE")
-include(CPack)
