@@ -1,7 +1,7 @@
 # Black Duck scanning scheme
 
 Black Duck reporting is split by dependency closure so that a reviewer can tell
-which dependencies are shipped in the native runtime, needed by an application,
+which dependencies are incorporated into the runtime library, needed by an application,
 used to build the project, or installed only for Ultralytics benchmarking. A
 single aggregate BOM obscures these distinctions.
 
@@ -12,13 +12,13 @@ revision `<revision>`, create these versions:
 
 | Version | Question answered |
 | --- | --- |
-| `<revision>-runtime` | What third-party code is incorporated into the native runtime library? |
+| `<revision>-runtime` | What third-party code is incorporated into the runtime library? |
 | `<revision>-examples` | What must be installed to run the repository examples? |
 | `<revision>-build` | What is required to produce the runtime and model artifacts? |
 | `<revision>-ultralytics` | What must be installed to run the Ultralytics benchmark? |
 
 The examples, build, and Ultralytics versions reference the runtime version as
-a Black Duck subproject. The native dependency inventory therefore has one
+a Black Duck subproject. The runtime-library dependency inventory therefore has one
 owner and is not copied into each parent BOM.
 
 Separate Black Duck projects are unnecessary unless these closures later gain
@@ -37,11 +37,11 @@ dependency boundaries:
 | Decision | Justification and consequence |
 | --- | --- |
 | Use a separate version for each closure | Black Duck aggregates all scans mapped to one project version into one BOM. Separate versions preserve the distinction between shipped runtime code, application dependencies, build tools, and benchmark dependencies. See [Scanning best practices](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/scanning-best-practices.html). |
-| Reference the runtime as a subproject | Black Duck subprojects represent one project version inside another and propagate updates from the subproject to its parents. This gives the native runtime one authoritative BOM without copying its component inventory into every closure. See [Managing subprojects](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/managing-subprojects.html). |
+| Reference the runtime as a subproject | Black Duck subprojects represent one project version inside another and propagate updates from the subproject to its parents. This gives the runtime library one authoritative BOM without copying its component inventory into every closure. See [Managing subprojects](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/managing-subprojects.html). |
 | Mark build and Ultralytics versions `INTERNAL` | Black Duck defines internal distribution as software that remains within the company and does not reach customers. It also excludes internal versions from project-level risk calculations, so this setting is used deliberately only for the two internal environments. See [Creating a project version](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/creating-a-new-version-of-a-project.html). |
 | Mark build tools `Dev. Tool / Excluded` | Black Duck recommends this usage for development tools discovered by a scan but not distributed with the released product. Their licenses no longer contribute to the version's license-risk calculation, while their security and operational risks remain available. See [Excluding a component from a BOM](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/excluding-a-component-from-a-bom.html). |
 | Exclude build tools from the build Notices report | Notices inclusion is independent of component usage and all components are included by default. Each build tool is therefore explicitly excluded. Runtime release notices are generated from the runtime version, which never contains the tools. See [Excluding a component or subproject from the Notices File report](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/excluding-a-component-or-subproject-from-the-notices-file-report.html). |
-| Classify native dependencies as statically linked | The final link command incorporates XNNPACK, pthreadpool, cpuinfo, and FXdiv into `libarm-yolo26n.so.0`. Usage is corrected from Black Duck's default rather than allowing the default to misdescribe how the released library is constructed. Black Duck documents `Statically Linked` as a supported component usage in [Excluding a component from a BOM](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/excluding-a-component-from-a-bom.html). |
+| Classify runtime dependencies as statically linked | The final link command incorporates XNNPACK, pthreadpool, cpuinfo, and FXdiv into `libarm-yolo26n.so.0`. Usage is corrected from Black Duck's default rather than allowing the default to misdescribe how the released library is constructed. Black Duck documents `Statically Linked` as a supported component usage in [Excluding a component from a BOM](https://docs.blackduck.com/r/blackduck/latest/black-duck-documentation/excluding-a-component-from-a-bom.html). |
 
 Black Duck configuration expresses how components are used; it does not decide
 the repository's product boundaries. The runtime, examples, build, and
@@ -93,7 +93,7 @@ qualified Raspberry Pi 5 build environment for revision `be2bbfe1` contains:
 
 | Tool | Qualified version | Debian package revision | Repository use |
 | --- | --- | --- | --- |
-| CMake | 3.31.6 | `cmake` 3.31.6-2 | Dependency acquisition, native build, tests, installation, bundling, and packaging. The build requires CMake 3.24 or newer. |
+| CMake | 3.31.6 | `cmake` 3.31.6-2 | Dependency acquisition, runtime compilation, tests, and installation. The build requires CMake 3.24 or newer. |
 | GCC and G++ | 14.2.0 | `gcc-14-aarch64-linux-gnu` and `g++-14-aarch64-linux-gnu` 14.2.0-19 | Linux AArch64 C and C++17 compilation and linking. |
 | GNU Make | 4.4.1 | `make` 4.4.1-2 | CMake build backend. |
 | GNU Patch | 2.8 | `patch` 2.8-2 | Applies the repository-owned dependency patches. |
@@ -216,7 +216,7 @@ Configure the environment with:
 
 Each scan uses the first eight characters of the merge revision in both the
 version and code-location names. The runtime scan uses `make runtime-configure`
-with an isolated build directory, then scans only the four native dependency
+with an isolated build directory, then scans only the four runtime dependency
 source directories fetched by CMake. It enables license search and disables
 source upload and snippet matching. Each Python scan stages exactly one
 hash-locked requirements file, installs it into an isolated environment, and

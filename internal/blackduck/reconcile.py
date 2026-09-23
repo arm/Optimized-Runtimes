@@ -20,7 +20,7 @@ _RUNTIME_FALSE_POSITIVES = {"ML-Embedded-Eval-Kit"}
 _EXAMPLE_COMPONENTS = {"NumPy", "opencv-python"}
 _VERSION_DESCRIPTIONS = {
     "runtime": (
-        "Dependencies incorporated into the compiled Arm YOLO26n native runtime "
+        "Dependencies incorporated into the compiled Arm YOLO26n runtime library "
         "distributed to users."
     ),
     "examples": (
