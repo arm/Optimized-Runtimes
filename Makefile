@@ -82,7 +82,7 @@ help:
 	  '      Configure, compile, test, and write the native runtime to dist/runtime/.' \
 	  '' \
 	  '  make release' \
-	  '      Build the native, converter, and Python API release packages.' \
+	  '      Build the runtime, converter, and Python API release packages.' \
 	  '' \
 	  '  make requirements-lock' \
 	  '      Regenerate the hash-locked Python dependency closures.' \
@@ -105,13 +105,13 @@ help:
 	  '      Run source formatting, static analysis, typing, and syntax checks.' \
 	  '' \
 	  '  make test-unit' \
-	  '      Run unit and command-interface tests without the native runtime.' \
+	  '      Run unit and command-interface tests without the runtime.' \
 	  '' \
 	  '  make test-converter CHECKPOINT=/path/to/yolo26n.pt' \
 	  '      Run checkpoint-backed converter behavior tests.' \
 	  '' \
 	  '  make test-end-to-end CHECKPOINT=... RUNTIME=... MODELS=/model/320:/model/480:...' \
-	  '      Run converter, native runtime, and example behavior tests.' \
+	  '      Run converter, runtime, and example behavior tests.' \
 	  '' \
 	  '  make coverage CHECKPOINT=... MODELS=/model/320:/model/480:...' \
 	  '      Generate diagnostic Python and native coverage reports.'
@@ -150,7 +150,7 @@ model-check: $(CHECKPOINT)
 	  --resolution "$(RESOLUTION)" \
 	  --output "$(MODEL_VALIDATION)"
 
-# Native runtime
+# Runtime
 .PHONY: runtime
 runtime:
 	cmake -S src/runtime -B "$(RUNTIME_BUILD)" \
