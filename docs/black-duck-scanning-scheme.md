@@ -8,14 +8,14 @@ benchmarking. A single aggregate BOM obscures these distinctions.
 ## Project and version structure
 
 All closures remain versions of the Black Duck project configured for this
-repository. For a source revision `<revision>`, create these versions:
+repository. Continuous scanning updates four long-lived versions:
 
 | Version | Question answered |
 | --- | --- |
-| `<revision>-runtime` | What third-party code is incorporated into the runtime library? |
-| `<revision>-examples` | What must be installed to run the repository examples? |
-| `<revision>-build` | What is required to produce the runtime and model artifacts? |
-| `<revision>-ultralytics` | What must be installed to run the Ultralytics benchmark? |
+| `main-runtime` | What third-party code is incorporated into the runtime library? |
+| `main-examples` | What must be installed to run the repository examples? |
+| `main-build` | What is required to produce the runtime and model artifacts? |
+| `main-ultralytics` | What must be installed to run the Ultralytics benchmark? |
 
 The examples, build, and Ultralytics versions reference the runtime version as
 a Black Duck subproject. The runtime-library dependency inventory therefore
@@ -23,6 +23,17 @@ has one owner and is not copied into each parent BOM.
 
 Separate Black Duck projects are unnecessary unless these closures later gain
 independent release lifecycles, ownership, or policy requirements.
+
+Each scan has a revision-specific code-location name, so Black Duck retains the
+identity of the source revision that produced the current BOM. Before mapping a
+new code location, Detect unmaps the previous scan from that version. This
+prevents removed dependencies from accumulating while keeping the component
+classifications and subproject relationships configured on the long-lived
+version.
+
+Release records are immutable clones of these versions, named for the release,
+for example `0.1.0-runtime`. A version is cloned only after confirming its most
+recent scan corresponds to the revision being released.
 
 The runtime and examples versions have `EXTERNAL` distribution because they
 describe software intended for users. The build and Ultralytics versions have
@@ -106,14 +117,12 @@ components. Linters, test runners, and other repository quality tools are not
 build dependencies merely because a developer environment installs them.
 
 Black Duck cannot infer system tools such as CMake or the compiler from the
-CMake-fetched source tree. They are therefore entered from this explicit,
-reviewed inventory, which is represented by Black Duck component identities in
-`internal/blackduck/build-tools.json`. Each tool uses the
-`Dev. Tool / Excluded` usage and is excluded from the build version's Notices
-report. Pip and the hash-locked Python build requirement are discovered by the
-package scan and receive the same treatment. This retains security and
-operational information without treating build tools as code distributed with
-the project.
+CMake-fetched source tree. They are therefore entered once in `main-build` from
+this reviewed inventory. Each tool uses the `Dev. Tool / Excluded` usage and is
+excluded from the build version's Notices report. Pip and the hash-locked
+Python build requirement are discovered by the package scan and receive the
+same treatment. This retains security and operational information without
+treating build tools as code distributed with the project.
 
 Runtime release attribution is generated from the runtime version, where these
 tools do not appear. Attribution inclusion is controlled separately from
@@ -136,7 +145,8 @@ examples.
 ## Scan rules
 
 Each closure has its own code location named with both the closure and source
-revision. A scan is mapped only to its corresponding version.
+revision. A scan is mapped only to its corresponding long-lived version, and
+the previous code location is unmapped as part of that update.
 
 Every scan sets the project-version license from the repository declaration:
 
@@ -173,7 +183,8 @@ They are not inferred from Black Duck's default `DYNAMICALLY_LINKED` usage.
 
 ## Trial at `be2bbfe1`
 
-The initial trial created:
+The initial trial used revision-specific versions before the continuous
+scanning design was finalized. It created:
 
 - `be2bbfe1-runtime`
 - `be2bbfe1-examples`
@@ -199,6 +210,9 @@ that the aggregate BOM concealed:
 These are issues to resolve in the individual closures. They are not reasons to
 return to a combined BOM.
 
+The trial versions remain historical evidence. Continuous scanning uses the
+four `main-*` versions instead of creating four more versions for every merge.
+
 ## GitHub Actions automation
 
 `.github/workflows/blackduck.yml` runs the four closure scans after every push
@@ -211,7 +225,6 @@ Configure the environment with:
 - `BLACKDUCK_TOKEN`, an environment secret authorized to update the existing
   project;
 - `BLACKDUCK_URL`, a variable containing the Black Duck server URL;
-- `BLACKDUCK_PROJECT_ID`, a variable containing the stable project UUID; and
 - `BLACKDUCK_PROJECT_NAME`, a variable containing the exact project name.
 
 Create these settings in the GitHub repository:
@@ -220,31 +233,52 @@ Create these settings in the GitHub repository:
    `blackduck`.
 2. Restrict that environment's deployment branches to `main`.
 3. Add `BLACKDUCK_TOKEN` under **Environment secrets**.
-4. Add `BLACKDUCK_URL`, `BLACKDUCK_PROJECT_ID`, and
-   `BLACKDUCK_PROJECT_NAME` under **Environment variables**.
+4. Add `BLACKDUCK_URL` and `BLACKDUCK_PROJECT_NAME` under **Environment
+   variables**.
 
 The token must be a Black Duck API token for an account permitted to create
-and update versions in the configured project. Keeping all four values on the
+and update versions in the configured project. Keeping all three values on the
 branch-restricted environment prevents pull-request code from receiving them.
 
-Each scan uses the first eight characters of the merge revision in both the
-version and code-location names. The runtime scan uses `make runtime-configure`
-with an isolated build directory, then scans only the four runtime dependency
-source directories fetched by CMake. It enables license search and disables
-source upload and snippet matching. Each Python scan stages exactly one
-hash-locked requirements file, installs it into an isolated environment, and
-requires Black Duck's high-accuracy PIP native inspector.
+Each scan updates `main-<closure>` and includes the first eight characters of
+the merge revision in its code-location name. The runtime scan uses
+`make runtime-configure` with an isolated build directory, then scans only the
+four runtime dependency source directories fetched by CMake. It enables
+license search and disables source upload and snippet matching. Each Python
+scan stages exactly one hash-locked requirements file, installs it into an
+isolated environment, and requires Black Duck's high-accuracy PIP native
+inspector.
 
-After all scans finish, `internal/blackduck/reconcile.py` performs the parts of
-the dependency-closure model that Detect does not express: it establishes the
-three runtime subproject relationships, adds the reviewed system build tools,
-applies component usage and Notices settings, and verifies that the resulting
-BOMs still match their intended closures. It reports the known Torch and
-Torchvision mapping gap in the GitHub job summary.
+After the first successful workflow run, configure the long-lived versions in
+Black Duck once:
 
-`internal/blackduck/api.py` contains only the authentication, request, and
-pagination boundary used for those operations. Policy remains in
-`reconcile.py` and this document.
+1. Add `main-runtime` as a subproject of `main-examples`, `main-build`, and
+   `main-ultralytics`.
+2. Classify XNNPACK, pthreadpool, cpuinfo, and FXdiv as statically linked and
+   include them in runtime attribution.
+3. Ignore the reviewed `ML-Embedded-Eval-Kit` false positive if it appears.
+4. Add the system tools listed under **Build**, classify them as
+   `Dev. Tool / Excluded`, and exclude them from the build Notices report.
+5. Confirm that `main-examples` contains only NumPy, OpenCV, and the runtime
+   subproject, and record the known Torch and Torchvision mapping gap on
+   `main-ultralytics` if it remains.
+
+These settings remain attached to the long-lived versions as new code
+locations replace old ones. They do not require repository-owned REST
+reconciliation after every scan.
+
+## Release versions
+
+When a release candidate is approved, verify that each `main-*` version was
+last scanned from the candidate revision, then clone the four versions to the
+release number, such as `0.1.0-runtime` and `0.1.0-examples`. Clone component
+data so the reviewed usage, ignored-match, manually added tool, and subproject
+decisions are retained. Review the cloned versions before publishing the
+release.
+
+This follows Black Duck's project-version cloning workflow rather than
+recreating those decisions with a repository-specific API client. See
+[Cloning a project version](https://documentation.blackduck.com/en-US/bundle/bd-hub-2026.4/page/InternalProjectVersions/Cloning.html).
 
 Two scanning paths will serve different purposes.
 

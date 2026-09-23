@@ -299,10 +299,10 @@ lint:
 	  -exec "$(CLANG_FORMAT)" --dry-run --Werror {} +
 	@# Ruff's formatter verifies the Python source formatting.
 	"$(PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
-	  benchmarks examples internal/blackduck tests
+	  benchmarks examples tests
 	@# Ruff's linter detects Python correctness, style, and import problems.
 	"$(PYTHON)" -m ruff check src/converter src/runtime/api/python/arm_yolo26n \
-	  benchmarks examples internal/blackduck tests
+	  benchmarks examples tests
 	@# Import Linter enforces the converter's declared dependency direction.
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -c \
 	  'from importlinter.cli import lint_imports; raise SystemExit(lint_imports(no_cache=True))'
@@ -313,8 +313,7 @@ lint:
 	@# Bash parses every benchmark shell script without executing it.
 	@find benchmarks/ultralytics -maxdepth 1 -type f -name '*.sh' -exec bash -n {} +
 	@# Python's JSON parser verifies the checked-in JSON documents.
-	@shopt -s nullglob; for document in src/converter/*.json benchmarks/reporting/*.json \
-	    internal/blackduck/*.json; do \
+	@shopt -s nullglob; for document in src/converter/*.json benchmarks/reporting/*.json; do \
 	  "$(PYTHON)" -m json.tool "$$document" >/dev/null; \
 	done
 	@# Git detects whitespace errors introduced by the current change.

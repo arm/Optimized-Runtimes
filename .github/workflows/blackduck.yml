@@ -80,6 +80,9 @@ jobs:
       DETECT_PROJECT_VERSION_DISTRIBUTION: ${{ matrix.distribution }}
       DETECT_PROJECT_VERSION_LICENSE: Apache License 2.0
       DETECT_PROJECT_VERSION_UPDATE: "true"
+      # Each closure has one long-lived main version. Replace its previous scan
+      # mapping so removed dependencies do not remain in the current BOM.
+      DETECT_PROJECT_CODELOCATION_UNMAP: "true"
     steps:
       - name: Install scan prerequisites
         run: |
@@ -110,7 +113,7 @@ jobs:
           CLOSURE: ${{ matrix.closure }}
         run: |
           revision="${GITHUB_SHA:0:8}"
-          echo "DETECT_PROJECT_VERSION_NAME=${revision}-${CLOSURE}" >> "$GITHUB_ENV"
+          echo "DETECT_PROJECT_VERSION_NAME=main-${CLOSURE}" >> "$GITHUB_ENV"
           echo "DETECT_CODE_LOCATION_NAME=arm-yolo26n-${CLOSURE}-${revision}" >> "$GITHUB_ENV"
 
       - name: Require Black Duck configuration
@@ -173,39 +176,3 @@ jobs:
           blackducksca_waitForScan: true
           project_directory: ${{ matrix.directory }}
           detect_args: ${{ matrix.detect_args }}
-
-  # Detect discovers components, but it cannot apply this repository's
-  # cross-version subproject links, reviewed usage and Notices settings, or
-  # manual system-tool inventory. Apply and verify those decisions after all
-  # four scans complete.
-  reconcile:
-    if: github.ref == 'refs/heads/main'
-    name: Reconcile closure BOMs
-    needs: scan
-    runs-on: ubuntu-24.04-arm
-    environment: blackduck
-    container:
-      image: debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
-    steps:
-      - name: Install reconciliation prerequisites
-        run: |
-          apt-get update
-          apt-get install --yes --no-install-recommends ca-certificates git python3
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Check out main
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Reconcile and verify Black Duck BOMs
-        env:
-          BLACKDUCK_PROJECT_ID: ${{ vars.BLACKDUCK_PROJECT_ID }}
-          BLACKDUCK_TOKEN: ${{ secrets.BLACKDUCK_TOKEN }}
-          BLACKDUCK_URL: ${{ vars.BLACKDUCK_URL }}
-        run: |
-          test -n "$BLACKDUCK_PROJECT_ID" || {
-            echo 'BLACKDUCK_PROJECT_ID is not configured' >&2
-            exit 1
-          }
-          python3 -m internal.blackduck.reconcile --revision "${GITHUB_SHA:0:8}"
