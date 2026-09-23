@@ -1,0 +1,14 @@
+diff --git a/sources/xnnpack/CMakeLists.txt b/sources/xnnpack/CMakeLists.txt
+index 1887a4a..6fb65b1 100644
+--- a/sources/xnnpack/CMakeLists.txt
++++ b/sources/xnnpack/CMakeLists.txt
+@@ -419,7 +419,8 @@ IF(CMAKE_SYSTEM_NAME MATCHES "^(Android|Linux)$")
+       # GCC doesn't support this flag yet
+       set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mmark-bti-property")
+     ELSE()
+-      MESSAGE(WARNING "Security: XNNPACK doesn't support BTI control flow integrity with GCC. Continuing.")
++      MESSAGE(STATUS "Security: XNNPACK BTI is disabled with GCC; the fixed Raspberry Pi 5 "
++        "Cortex-A76 target cannot enforce BTI.")
+     ENDIF()
+   ENDIF()
+ ENDIF()
