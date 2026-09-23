@@ -17,7 +17,7 @@ if [[ ! -r /proc/device-tree/model ]] || ! grep -q 'Raspberry Pi 5' /proc/device
   exit 1
 fi
 
-python3 -m venv "$venv"
+python3 -m venv --clear "$venv"
 wheel_directory=$(mktemp -d)
 trap 'rm -rf "$wheel_directory"' EXIT
 PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install --require-hashes \
@@ -27,7 +27,7 @@ PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip wheel --no-deps --no-build-i
 PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install --require-hashes \
   --requirement "$repo/benchmarks/ultralytics/requirements.txt"
 PIP_CONFIG_FILE=/dev/null "$venv/bin/python" -m pip install \
-  --no-deps --force-reinstall "$wheel_directory"/arm_yolo26n-*.whl
+  --no-deps "$wheel_directory"/arm_yolo26n-*.whl
 
 site=$("$venv/bin/python" - <<'PY'
 import site
