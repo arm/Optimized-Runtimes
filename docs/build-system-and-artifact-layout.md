@@ -78,8 +78,7 @@ build/
 dist/
   runtime/                         Installed or downloaded runtime distribution
   models/<model>-<resolution>/     Locally converted model and manifest
-  packages/                        CPack archives and Python wheel
-  release/                         Final runtime and development distributions
+  packages/                        Component and final distribution packages
 
 examples/.venv/                    Example application environment
 examples/video/output/             Video detections, rendered video, and logs
@@ -103,8 +102,8 @@ The meanings are strict:
   under `dist/` means the artifact is ready to use, not that this project has
   the right to redistribute a particular set of weights.
 - `dist/packages/` contains the component packages produced by CPack and Python
-  packaging. The build combines them under `dist/release/` before retaining
-  the files that can become a release candidate.
+  packaging and the final distributions assembled from them. The build retains
+  only the final files that can become a release candidate.
 - Environments and user-visible results live with the workflow that owns them.
   A user running the video example finds its output under
   `examples/video/output/`, not in an unrelated build directory.

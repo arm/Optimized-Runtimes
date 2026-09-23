@@ -80,16 +80,40 @@ jobs:
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
       - name: Assemble release distribution
         run: |
-          python3 -m internal.release.distribution \
-            --input-dir dist/packages \
-            --output-dir dist/release \
-            --version "$(cat VERSION)"
+          version="$(cat VERSION)"
+          packages="$PWD/dist/packages"
+          runtime="$packages/arm-yolo26n-rpi5-$version-runtime.tar.gz"
+          development="$packages/arm-yolo26n-rpi5-$version-development.tar.gz"
+          wheel="$packages/arm_yolo26n-$version-py3-none-any.whl"
+          (cd "$packages" && sha256sum --check "$(basename "$runtime").sha256")
+          (cd "$packages" && sha256sum --check "$(basename "$development").sha256")
+
+          staging="$(mktemp -d)"
+          trap 'rm -rf -- "$staging"' EXIT
+          tar --extract --gzip --file "$runtime" --directory "$staging"
+          install --directory "$staging/python"
+          install --mode 0644 "$wheel" "$staging/python/"
+
+          distribution="$packages/arm-yolo26n-$version-rpi5-trixie-arm64.tar.gz"
+          tar --create --gzip --file "$distribution" \
+            --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+            --directory "$staging" lib python share
+          release_development="$packages/arm-yolo26n-$version-rpi5-trixie-arm64-dev.tar.gz"
+          cp "$development" "$release_development"
+          (cd "$packages" && sha256sum "$(basename "$distribution")" \
+            > "$(basename "$distribution").sha256")
+          (cd "$packages" && sha256sum "$(basename "$release_development")" \
+            > "$(basename "$release_development").sha256")
       - name: Retain main build packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: main-build-${{ github.sha }}
-          path: dist/release/
+          path: |
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz.sha256
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz
+            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz.sha256
           if-no-files-found: error
           retention-days: 30
           compression-level: 0

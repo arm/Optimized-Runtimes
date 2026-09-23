@@ -6,7 +6,6 @@ import json
 import subprocess
 import sys
 import tarfile
-import zipfile
 from pathlib import Path
 
 
@@ -23,56 +22,34 @@ def _write_checksum(path: Path) -> None:
     path.with_name(f"{path.name}.sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")
 
 
-def _build_artifact(directory: Path) -> None:
+def _final_packages(directory: Path) -> None:
     version = "0.1.0"
-    runtime = directory / f"arm-yolo26n-rpi5-{version}-runtime.tar.gz"
+    runtime = directory / f"arm-yolo26n-{version}-rpi5-trixie-arm64.tar.gz"
     _write_archive(
         runtime,
         {
             f"lib/libarm-yolo26n.so.{version}": b"runtime",
             "lib/libarm-yolo26n.so.0": b"runtime",
+            f"python/arm_yolo26n-{version}-py3-none-any.whl": b"wheel",
             "share/doc/arm-yolo26n/LICENSE": b"project license",
             "share/doc/arm-yolo26n/licenses/xnnpack/LICENSE": b"dependency license",
         },
     )
     _write_checksum(runtime)
 
-    development = directory / f"arm-yolo26n-rpi5-{version}-development.tar.gz"
+    development = directory / f"arm-yolo26n-{version}-rpi5-trixie-arm64-dev.tar.gz"
     _write_archive(
         development,
         {"include/arm_yolo26n.h": b"header", "lib/libarm-yolo26n.so": b"runtime"},
     )
     _write_checksum(development)
 
-    wheel = directory / f"arm_yolo26n-{version}-py3-none-any.whl"
-    with zipfile.ZipFile(wheel, "w") as package:
-        package.writestr(
-            f"arm_yolo26n-{version}.dist-info/METADATA",
-            "Metadata-Version: 2.4\nName: arm-yolo26n\nVersion: 0.1.0\n",
-        )
-
 
 def test_build_packages_are_promoted_without_repackaging(tmp_path: Path) -> None:
-    inputs = tmp_path / "input"
-    inputs.mkdir()
-    _build_artifact(inputs)
     packages = tmp_path / "packages"
+    packages.mkdir()
+    _final_packages(packages)
     revision = "a" * 40
-
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "internal.release.distribution",
-            "--input-dir",
-            str(inputs),
-            "--output-dir",
-            str(packages),
-            "--version",
-            "0.1.0",
-        ],
-        check=True,
-    )
     package_identities = {
         path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in packages.iterdir()
     }
