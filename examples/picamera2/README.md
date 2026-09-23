@@ -31,15 +31,11 @@ so its bindings match libcamera. Confirm camera access with
 ## Headless detection
 
 ```bash
-examples/.venv/bin/python -m examples.picamera2.detect \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
-  --model "$PWD/dist/models/yolo26n-640" \
-  --camera 0 \
-  --frames 100 \
-  --print-detections
+make example-camera CAMERA_ARGS="--frames 100 --print-detections"
 ```
 
-Omit `--frames` to run until interrupted.
+Without `CAMERA_ARGS`, the example runs until interrupted. Select a different
+camera with `CAMERA=1`.
 
 ## Live preview
 

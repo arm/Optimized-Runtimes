@@ -218,6 +218,7 @@ to repeat `yolo26n` everywhere.
 | `make clean` | Remove reproducible artifacts under `build/` and `dist/` while preserving downloads, environments, and results |
 | `make examples` | Prepare the example environment, verified inputs, runtime selection, and converted model; do not run an example |
 | `make example-video` | Run prerecorded-video inference and write its detection document and rendered video |
+| `make example-camera [CAMERA=...] [CAMERA_ARGS=...]` | Run display-independent Picamera2 detection with the prepared runtime and model |
 | `make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...` | Prepare the pinned Ultralytics environment when needed, then run validation and record evidence |
 | `make lint` | Prepare the hash-locked development environment when needed, then run formatting, static analysis, type checking, import-boundary checks, and shell syntax checks |
 | `make test-unit` | Run unit and public command-interface tests without the native runtime |
@@ -249,8 +250,11 @@ Caller-provided artifact paths are reused and have no automatic download rule.
 It does not download the test video, run video inference, or open a camera.
 `make example-video` obtains the verified video if it is absent, records
 detections, and renders an annotated MP4 under `examples/video/output/`.
-Picamera2 users therefore never download media they do not need. Camera actions
-remain explicit because they have different resource and display requirements.
+`make example-camera` explicitly opens Picamera2 for display-independent
+detection, so it also works over SSH. Picamera2 users therefore never download
+media they do not need, and camera actions remain explicit because they have
+different resource requirements. The Picamera2 guide separately documents the
+graphical preview and its desktop or DRM/KMS requirements.
 
 ## Ultralytics workflow
 

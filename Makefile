@@ -47,6 +47,8 @@ VIDEO_URL := https://raw.githubusercontent.com/google-ai-edge/mediapipe/0ad5a71b
 VIDEO_SHA256 := 710831289c00251c86eafb0b0d11cf6190fda02f95bcfaa5037511eabb5c9de8
 VIDEO_OUTPUT ?= $(ROOT)/examples/video/output/detections.json
 VIDEO_RENDERED ?= $(ROOT)/examples/video/output/rendered.mp4
+CAMERA ?= 0
+CAMERA_ARGS ?=
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
@@ -102,6 +104,9 @@ help:
 	  '' \
 	  '  make example-video' \
 	  '      Write detections and a rendered MP4 under examples/video/output/.' \
+	  '' \
+	  '  make example-camera [CAMERA=0] [CAMERA_ARGS="..."]' \
+	  '      Run Picamera2 detection until interrupted; no display is required.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
 	  '      Prepare Ultralytics, then validate the selected runtime and model.' \
@@ -233,7 +238,7 @@ _release-api:
 	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
-.PHONY: examples example-video
+.PHONY: examples example-video example-camera
 examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
     $(EXAMPLES_VENV)/pyvenv.cfg
 	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
@@ -317,6 +322,10 @@ example-video: examples $(VIDEO)
 	  --video "$(VIDEO)" --detections "$(VIDEO_OUTPUT)" --output "$(VIDEO_RENDERED)"
 	@printf 'Video example complete:\n  detections: %s\n  rendered video: %s\n' \
 	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
+
+example-camera: examples
+	"$(EXAMPLES_PYTHON)" -m examples.picamera2.detect \
+	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
 
 # Ultralytics benchmark
 .PHONY: _ultralytics-prepare ultralytics-benchmark
