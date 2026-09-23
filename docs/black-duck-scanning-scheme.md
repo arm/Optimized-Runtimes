@@ -61,8 +61,8 @@ this repository. The Black Duck settings record those boundaries rather than
 creating them.
 
 The repository root `LICENSE` is the source of truth for the Apache-2.0 license
-of project-owned code. Runtime archives include that
-file as `LICENSE`; dependency licenses remain separate under `licenses/`.
+of project-owned code. The application wheel includes that license and keeps
+the native dependency licenses as separate files in its wheel license metadata.
 Black Duck project-version metadata records Apache-2.0 from this repository
 declaration rather than treating an inferred component license as the project's
 license.

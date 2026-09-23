@@ -156,6 +156,9 @@ jobs:
 
           [Black Duck run]($BLACK_DUCK_RUN_URL)
 
+          Follow the [release qualification runbook](https://github.com/$GITHUB_REPOSITORY/blob/$RELEASE_REVISION/docs/release-publishing-workflow.md)
+          for this exact revision.
+
           Install the candidate in a clean Python environment:
 
           ~~~sh

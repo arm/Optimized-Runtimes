@@ -1,163 +1,449 @@
-# Release publishing workflow
+# Release process
 
-## Purpose
+This is the authoritative runbook for creating, qualifying, and publishing an
+Arm Runtime for YOLO26n release. Follow it in order. A release promotes one
+build from `main`, qualifies those exact files on a Raspberry Pi 5, and
+publishes them without rebuilding or replacing them.
 
-The public repository will build release candidates in hosted Arm CI, qualify
-those exact files on a supported Raspberry Pi 5, and publish them without a
-second build. This preserves the clean CI build environment while making
-physical-device validation a release requirement.
+## Release boundary
 
-Candidate construction is implemented by the manually dispatched
-`release-candidate.yml` workflow. Publication remains a separate human action
-after Raspberry Pi qualification.
+The release publishes:
 
-## Published files
+| File | Contents |
+| --- | --- |
+| `arm_yolo26n-<version>-py3-none-linux_aarch64.whl` | Application API, runtime library, project license, and dependency licenses |
+| `arm_yolo26n-<version>-py3-none-linux_aarch64.whl.sha256` | Application wheel identity |
+| `arm_yolo26n_converter-<version>-py3-none-any.whl` | Portable checkpoint converter |
+| `arm_yolo26n_converter-<version>-py3-none-any.whl.sha256` | Converter wheel identity |
 
-The release page presents one primary download for the supported platform:
+GitHub supplies source archives for the release tag. The project does not
+publish a prebuilt development archive, checkpoint, or converted model.
+Developers build from the tagged source.
 
-```text
-arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz
+The supported Pi, operating system, Python, library, and camera boundaries are
+defined in [`supported-environment.md`](supported-environment.md). This
+runbook defines how to demonstrate that one candidate satisfies them.
+
+## 1. Prepare `main`
+
+Before dispatching a candidate:
+
+1. Set `VERSION` to the intended `major.minor.patch` release number.
+2. Merge all release changes to `main`.
+3. Confirm that the **Build** workflow passed for the current `main` commit.
+4. Confirm that the **Black Duck** workflow passed for the same commit.
+5. Review the four `main-*` Black Duck BOMs and their policy results.
+6. Complete any applicable pre-merge Black Duck snippet review described in
+   [`black-duck-scanning-scheme.md`](black-duck-scanning-scheme.md).
+
+The successful `main` build is the only release build. It runs linting, unit
+tests, checkpoint conversion, all-resolution end-to-end tests, and
+`make release`, then retains its outputs for 30 days. Candidate creation must
+reuse the wheels from that artifact.
+
+## 2. Create the draft candidate
+
+Open **Actions → Create release candidate → Run workflow**, select `main`, and
+confirm Black Duck review. The workflow:
+
+1. reads the version and source revision from `main`;
+2. requires successful Build and Black Duck runs for that exact revision;
+3. downloads the retained build artifact without rebuilding it;
+4. verifies both wheels, their checksums, and the application wheel's expected
+   runtime and license contents; and
+5. creates a draft `v<version>` release containing those four files.
+
+Do not publish the draft. Record its source revision, Build run, and Black Duck
+run from the generated release notes.
+
+## 3. Stage the candidate on the Pi
+
+Use a Raspberry Pi 5 running 64-bit Raspberry Pi OS Trixie. Install the system
+camera packages before qualification if the release claims camera support:
+
+```bash
+sudo apt update
+sudo apt install --yes python3-picamera2 python3-venv rpicam-apps
 ```
 
-This is the prebuilt distribution for running YOLO26n. It contains the native
-runtime installation, checkpoint converter wheel, and application API wheel.
-The release notes link to it as **Download for Raspberry Pi 5** and give the
-extraction and Python installation commands. A Python application needs no
-other release asset.
+Choose a persistent, empty qualification directory. Do not use `/tmp`, because
+the Pi is restarted later in the procedure.
 
-Repository examples obtain this distribution automatically. The public
-implementation must derive a version-specific release URL from the checkout
-rather than using `releases/latest`, so an older tag continues to obtain its
-own runtime.
+```bash
+set -euo pipefail
+repository=arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+version=0.1.0                         # Set the candidate version.
+release="v$version"
+qualification="$HOME/arm-yolo26n-$version-qualification"
 
-| File | Owner | Contents |
-| --- | --- | --- |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | `make release` | Ready-to-run native installation, converter and application API wheels, project license, and third-party licenses |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | `make release` from the CMake development install component | Optional C header and unversioned linker name for C or C++ development |
-| `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
+test ! -e "$qualification"
+mkdir -p "$qualification"/{downloads,evidence,logs,models}
 
-GitHub's archive for the release tag is the complete project source
-distribution for users who want to inspect or build the project. GitHub labels
-those automatic assets **Source code (zip)** and **Source code (tar.gz)**. A
-separate Python source distribution is unnecessary unless the Python package
-is later published through an index such as PyPI.
+revision=$(gh release view "$release" --repo "$repository" \
+  --json isDraft,targetCommitish \
+  --jq 'select(.isDraft).targetCommitish')
+test -n "$revision"
 
-The release contains no checkpoint or converted model. Qualification downloads
-the official checkpoint from its publisher, verifies its known digest, and
-keeps it out of the published files in accordance with
-[`yolo26n-raspberry-pi-publishing-strategy.md`](yolo26n-raspberry-pi-publishing-strategy.md).
+git clone "https://github.com/$repository.git" "$qualification/source"
+git -C "$qualification/source" checkout --detach "$revision"
+test "$(cat "$qualification/source/VERSION")" = "$version"
 
-## Required pre-merge and post-merge checks
+gh release download "$release" --repo "$repository" \
+  --dir "$qualification/downloads"
+test "$(find "$qualification/downloads" -maxdepth 1 -type f | wc -l)" -eq 4
 
-The public repository requires the normal build and test workflow on pull
-requests. Applicable contributions containing AI-generated code also require
-the maintainer-approved Black Duck snippet scan described in
-[`black-duck-scanning-scheme.md`](black-duck-scanning-scheme.md).
+cd "$qualification/downloads"
+sha256sum --check "arm_yolo26n-$version-py3-none-linux_aarch64.whl.sha256"
+sha256sum --check "arm_yolo26n_converter-$version-py3-none-any.whl.sha256"
+```
 
-After merge, the trusted full Black Duck scan records the runtime, examples,
-build, and Ultralytics dependency closures. A release candidate must come from
-a `main` commit whose scan completed successfully and whose BOM and notice
-decisions have been reviewed. The release workflow references that result; it
-does not repeat an unchanged scan.
+Record SHA-256 values for both wheels. Every later step must use these staged
+files. A changed digest invalidates the qualification and requires a new
+candidate.
 
-## Candidate construction
+```bash
+cd "$qualification"
+sha256sum \
+  downloads/*.whl \
+  > evidence/candidate-sha256.txt
+```
 
-A separate, manually triggered GitHub Actions workflow operates on the current
-`main` commit and reads its version from `VERSION`. The ordinary `main` build
-remains the only build: it has already run the tests, built the converter and
-application API wheels, installed CMake's runtime and development components,
-and assembled the final distribution. Candidate construction:
+## 4. Install the candidate application environment
 
-1. verifies the current `main` commit and its version;
-2. requires a successful build and successful Black Duck run for that exact
-   commit, plus the maintainer's confirmation that the Black Duck result was
-   reviewed;
-3. downloads the retained `main-build-<commit>` artifact without rebuilding;
-4. verifies the final distribution checksums and expected native, Python, and
-   license files; and
-5. creates one draft GitHub release targeting that commit and records the
-   source, build, and Black Duck run in its notes.
+Create the environment on persistent storage. `--system-site-packages` exposes
+the Raspberry Pi OS Picamera2 installation without installing a mismatched
+PyPI camera stack.
 
-The top-level `make release` command stages the native files through CMake's
-install rules, builds the converter and application API wheels, and combines
-those outputs into the single platform distribution users need. The build
-workflow only invokes that repository command and retains its final outputs.
-The candidate workflow verifies those retained bytes. It uses
-the `release-candidate` GitHub environment so repository administrators can add
-required reviewers before granting permission to create a draft release.
+```bash
+cd "$qualification"
+python3 -m venv --system-site-packages application-venv
 
-To construct a candidate, open **Actions → Release candidate → Run workflow**,
-select `main`, and confirm Black Duck review only after inspecting that
-commit's successful scan. Candidate runs are serialized so two maintainers
-cannot race to create the same release. The workflow rejects malformed
-versions, missing successful runs, existing release tags, and unexpected or
-damaged build packages.
+PIP_CONFIG_FILE=/dev/null PIP_NO_CACHE_DIR=1 \
+  application-venv/bin/python -m pip install --require-hashes \
+  --requirement source/requirements.txt
 
-This follows [`arm/topo`'s release workflow](https://github.com/arm/topo/blob/main/.github/workflows/release.yaml)
-in using a manual release from current `main`, serializing release runs, and
-handing artifacts to a later publishing stage by producer-run identity. Topo
-rebuilds with GoReleaser because it produces tagged binaries for several
-platforms and then delegates signing and Artifactory publication. This project
-instead promotes its already-tested, fixed-platform `main` packages and creates
-a draft because Raspberry Pi qualification must occur before publication.
+PIP_CONFIG_FILE=/dev/null PIP_NO_CACHE_DIR=1 \
+  application-venv/bin/python -m pip install --no-deps \
+  "downloads/arm_yolo26n-$version-py3-none-linux_aarch64.whl" \
+  "downloads/arm_yolo26n_converter-$version-py3-none-any.whl"
+```
 
-Successful builds triggered by a push to `main` retain the final runtime and
-development distributions and their checksums for 30 days under an artifact
-named `main-build-<commit>`. Candidate construction verifies those files,
-records their source commit and workflow evidence, and promotes the unchanged
-bytes into the draft release used by qualification.
+Verify that both distributions report the candidate version and import from
+`application-venv`, not the repository checkout.
 
-## Raspberry Pi qualification
+```bash
+application-venv/bin/python - <<'PY'
+from importlib.metadata import version
+import arm_yolo26n
+import converter
 
-Qualification is performed by a human on a Raspberry Pi 5 matching
-[`supported-environment.md`](supported-environment.md); it does not require a
-self-hosted GitHub runner. The maintainer downloads the candidate with the
-GitHub interface or `gh release download` and verifies its checksums. Draft
-releases are visible to maintainers but are not public releases.
+print("arm-yolo26n", version("arm-yolo26n"), arm_yolo26n.__file__)
+print("arm-yolo26n-converter", version("arm-yolo26n-converter"), converter.__file__)
+PY
+```
 
-The Pi is freshly restarted before qualification. After startup activity has
-settled, qualification runs without unrelated user workloads competing for
-CPU, memory, or I/O. It uses a clean staging directory and Python virtual
-environment, installs only the downloaded candidate files, and never builds
-the native runtime from the repository checkout.
+Locate the installed runtime and add its digest to the candidate identities:
 
-The qualification procedure exercises:
+```bash
+runtime=$(application-venv/bin/python - <<'PY'
+from pathlib import Path
+import arm_yolo26n
 
-- installation of the candidate runtime, converter, and application API;
-- checkpoint conversion and native execution at every supported resolution;
-- the prerecorded-video example;
-- the reviewed Ultralytics accuracy and performance workload; and
-- both Picamera2 examples when the release claims camera support.
+print(Path(arm_yolo26n.__file__).with_name("libarm-yolo26n.so.0"))
+PY
+)
+test -f "$runtime"
+sha256sum "$runtime" >> evidence/candidate-sha256.txt
+```
 
-Performance measurement runs through the existing benchmark-reporting harness.
-Its benchmark log, artifact identities, and before-and-after host context are
-retained rather than reproduced by release-specific measurement code.
+Confirm that it is an AArch64 shared object with the expected SONAME and only
+the supported system-library dependencies:
 
-Qualification produces a normal test report and one evidence directory. The
-report identifies the release checksums, source commit, Pi environment,
-commands and outcomes, camera model when applicable, and the accuracy and
-performance evidence. A changed candidate digest invalidates the report and
-requires qualification of the new file.
+```bash
+readelf -h "$runtime"
+readelf -d "$runtime" | grep -E 'SONAME|NEEDED'
+```
 
-## Review and publication
+## 5. Convert and execute every supported resolution
 
-Performance acceptance is a human review decision. The workflow records the
-measurements and environment but defines no automatic regression threshold. A
-maintainer decides whether to publish, investigate, or repeat the session.
+Download the official checkpoint and verify its pinned identity:
 
-After functional, accuracy, performance, camera, license, and Black Duck
-evidence have been reviewed, a maintainer:
+```bash
+cd "$qualification"
+curl --fail --location --show-error \
+  https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt \
+  --output downloads/yolo26n.pt.tmp
+echo '9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef  downloads/yolo26n.pt.tmp' \
+  | sha256sum --check
+mv downloads/yolo26n.pt.tmp downloads/yolo26n.pt
+```
 
-1. verifies that the draft release targets the qualified source commit;
-2. verifies its existing candidate checksums against the qualification report;
-3. attaches the qualification evidence to that draft; and
-4. publishes the draft without rebuilding, replacing, or re-uploading a
-   candidate artifact.
+Use the installed candidate converter for every supported resolution:
 
-Publication may later be automated behind a protected GitHub release
-environment, but it must continue to consume the qualified candidate rather
-than invoking another build.
+```bash
+for resolution in 320 480 640 800 960 1280; do
+  application-venv/bin/python -m converter.export_yolo26n \
+    --checkpoint downloads/yolo26n.pt \
+    --resolution "$resolution" \
+    --output-dir "models/yolo26n-$resolution" \
+    2>&1 | tee "logs/convert-$resolution.log"
+done
+```
 
-If candidate construction, Black Duck review, Pi qualification, or human
-performance review is incomplete, no release is published. An unavailable
-camera also prevents a release from claiming qualified camera support.
+Use the installed candidate API and its bundled runtime to execute each model.
+The check verifies the public tensor shapes and finite output, not internal
+implementation details.
+
+```bash
+MODELS="$qualification/models" \
+  application-venv/bin/python - <<'PY' 2>&1 \
+  | tee logs/runtime-all-resolutions.log
+import os
+from pathlib import Path
+import numpy as np
+from arm_yolo26n import Yolo26nTensorSession
+
+models = Path(os.environ["MODELS"])
+for resolution in (320, 480, 640, 800, 960, 1280):
+    with Yolo26nTensorSession(model=models / f"yolo26n-{resolution}") as session:
+        output = session.execute(np.zeros(session.input_shape, dtype=np.float32))
+        assert tuple(output.shape) == session.output_shape
+        assert np.isfinite(output).all()
+        print(resolution, session.input_shape, session.output_shape, "pass")
+PY
+```
+
+## 6. Run the prerecorded-video example
+
+Download and verify the public MediaPipe test video, then process 200 frames
+through the candidate runtime and API:
+
+```bash
+curl --fail --location --show-error \
+  https://raw.githubusercontent.com/google-ai-edge/mediapipe/0ad5a71bcdff3d756dc5b07f93765aaeb4152538/mediapipe/examples/desktop/object_detection/test_video.mp4 \
+  --output downloads/test-video.mp4.tmp
+echo '710831289c00251c86eafb0b0d11cf6190fda02f95bcfaa5037511eabb5c9de8  downloads/test-video.mp4.tmp' \
+  | sha256sum --check
+mv downloads/test-video.mp4.tmp downloads/test-video.mp4
+
+mkdir -p evidence/video
+PYTHONPATH="$qualification/source" \
+  application-venv/bin/python -m examples.video.detect \
+  --model "$qualification/models/yolo26n-640" \
+  --video "$qualification/downloads/test-video.mp4" \
+  --output "$qualification/evidence/video/detections.json" \
+  --frames 200 \
+  2>&1 | tee logs/video-example.log
+```
+
+Record the frame count and input-video identity from `detections.json`.
+Throughput observed before the clean restart is functional evidence only, not
+the release performance result.
+
+## 7. Prepare the Ultralytics environment
+
+The benchmark has its own pinned environment. The current
+`ultralytics-patch` implementation builds the application API from the source
+checkout while installing its backend. That source-built wheel must not stand
+in for the candidate wheel, so reinstall the exact candidate wheel afterward.
+
+```bash
+benchmark_venv="$qualification/ultralytics-venv"
+PIP_NO_CACHE_DIR=1 \
+  "$qualification/source/benchmarks/ultralytics/patch.sh" "$benchmark_venv"
+
+PIP_CONFIG_FILE=/dev/null PIP_NO_CACHE_DIR=1 \
+  "$benchmark_venv/bin/python" -m pip install \
+  --force-reinstall --no-deps \
+  "$qualification/downloads/arm_yolo26n-$version-py3-none-linux_aarch64.whl"
+```
+
+Verify `arm-yolo26n` and Ultralytics versions and import locations before
+continuing. A future implementation should let `ultralytics-patch` accept the
+candidate wheel directly; until then this reinstall is required.
+
+## 8. Restart and inspect the Pi
+
+Complete all downloads and environment installation before the restart. Attach
+the camera, restart the Pi, allow startup activity to settle, and avoid
+unrelated workloads during performance measurement.
+
+```bash
+sudo reboot
+```
+
+After reconnecting, record:
+
+```bash
+set -euo pipefail
+repository=arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+version=0.1.0                         # Set the candidate version.
+release="v$version"
+qualification="$HOME/arm-yolo26n-$version-qualification"
+revision=$(git -C "$qualification/source" rev-parse HEAD)
+benchmark_venv="$qualification/ultralytics-venv"
+runtime=$(application-venv/bin/python - <<'PY'
+from pathlib import Path
+import arm_yolo26n
+
+print(Path(arm_yolo26n.__file__).with_name("libarm-yolo26n.so.0"))
+PY
+)
+
+uptime -p
+cat /proc/loadavg
+free -h
+df -h / /tmp
+taskset -pc $$
+vcgencmd get_throttled
+vcgencmd measure_temp
+rpicam-hello --list-cameras
+cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+cat /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+```
+
+Do not continue if the host is currently throttled, using swap, under material
+memory or disk pressure, or competing with unrelated workloads. Record
+historical throttling flags and decide whether another restart or hardware
+investigation is required. Do not clear the Linux page cache manually; the
+benchmark recorder captures cache, fault, pressure, and swap context for human
+interpretation.
+
+## 9. Record accuracy and performance
+
+The accepted comparison uses COCO128, batch 1, CPU execution, `workers=0`, and
+`plots=False`. Create the Ultralytics configuration directory before running
+to prevent a fallback to unrelated temporary state.
+
+Temporarily select the `performance` governor at 2.4 GHz to match the accepted
+baseline, then restore the prior governor after the command:
+
+```bash
+cd "$qualification"
+governor=/sys/devices/system/cpu/cpufreq/policy0/scaling_governor
+original_governor=$(cat "$governor")
+restore_governor() {
+  printf '%s' "$original_governor" | sudo tee "$governor" >/dev/null
+}
+trap restore_governor EXIT
+printf performance | sudo tee "$governor" >/dev/null
+
+mkdir -p ultralytics-config/Ultralytics
+PYTHONPATH="$qualification/source" \
+YOLO_CONFIG_DIR="$qualification/ultralytics-config" \
+  application-venv/bin/python -m benchmarks.ultralytics.benchmark \
+  --runtime "$runtime" \
+  --model "$qualification/models/yolo26n-640" \
+  --data coco128.yaml \
+  --venv "$qualification/ultralytics-venv" \
+  --output-dir "$qualification/evidence/ultralytics-coco128-qualified" \
+  --revision "$revision" \
+  -- workers=0 plots=False
+
+restore_governor
+trap - EXIT
+```
+
+Compare precision, recall, mAP50, mAP50-95, and stage timings with
+[`../benchmarks/reporting/baseline.md`](../benchmarks/reporting/baseline.md).
+The evidence directory retains the benchmark log, runtime and model identities,
+peak RSS, and before/after host context. Performance acceptance is a human
+review decision; this runbook intentionally defines no automatic percentage
+threshold. Do not repeat a completed run merely to select a more favorable
+number. Repeat only when the evidence identifies an invalid session.
+
+## 10. Qualify the physical camera
+
+The first release claiming camera support must record the camera module and
+pass both examples. First confirm camera discovery:
+
+```bash
+rpicam-hello --list-cameras | tee logs/camera-discovery.log
+```
+
+Run bounded headless capture:
+
+```bash
+PYTHONPATH="$qualification/source" \
+  application-venv/bin/python -m examples.picamera2.detect \
+  --model "$qualification/models/yolo26n-640" \
+  --camera 0 \
+  --frames 100 \
+  2>&1 | tee logs/picamera2-headless.log
+```
+
+For a Wayland Raspberry Pi desktop reached from another session, use the full
+documented Qt environment. Omitting `DISPLAY` can make Qt select an unusable
+backend even when the Wayland socket exists.
+
+```bash
+DISPLAY=:0 \
+WAYLAND_DISPLAY=wayland-0 \
+XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+PYTHONPATH="$qualification/source" \
+  application-venv/bin/python -m examples.picamera2.live \
+  --model "$qualification/models/yolo26n-640" \
+  --camera 0 \
+  --preview qtgl \
+  --frames 100 \
+  2>&1 | tee logs/picamera2-live.log
+```
+
+Use `--preview drm` instead only when qualifying a direct DRM console rather
+than the desktop QtGL path.
+
+## 11. Record the evidence
+
+Write `evidence/qualification-report.md` as a normal test report. It must
+identify:
+
+- release version, source revision, candidate asset names, and SHA-256 values;
+- Pi model, OS, kernel, Python, camera, and camera-stack package versions;
+- each command or public behavior checked and its pass, fail, or blocked result;
+- all-resolution conversion and execution results;
+- video-example result;
+- accuracy metrics and performance timings;
+- the human performance decision and its rationale;
+- benchmark host context, including thermals, throttling, frequency, memory,
+  filesystem cache, pressure, faults, and swap; and
+- any failed attempts or process corrections needed to interpret the session.
+
+Retain the report and supporting evidence with the project's internal release
+records. The qualification report is not a release asset.
+
+## 12. Freeze the Black Duck release BOMs
+
+Before publication, confirm that each `main-*` Black Duck version is mapped to
+the candidate revision. Clone component data from:
+
+- `main-runtime` to `<version>-runtime`;
+- `main-examples` to `<version>-examples`;
+- `main-build` to `<version>-build`; and
+- `main-ultralytics` to `<version>-ultralytics`.
+
+Review the cloned usages, ignored matches, manually inventoried tools,
+subproject relationships, Notices settings, licenses, and policy results. The
+clones preserve the reviewed release BOM; do not rescan or reconstruct it with
+a repository-specific reconciliation tool.
+
+## 13. Publish
+
+Before publication, verify:
+
+1. the draft targets the qualified source revision;
+2. its original application and converter wheels and checksums still match the
+   qualification report;
+3. the qualification report and supporting evidence have been retained in the
+   project's internal release records;
+4. the four cloned Black Duck versions have been reviewed;
+5. accuracy, performance, functional, and camera results are accepted; and
+6. the release notes identify the supported Pi environment and state that
+   qualification passed.
+
+Publish the existing draft without rebuilding, replacing, or re-uploading its
+candidate assets. GitHub creates the release tag and source archives at this
+point. After publication, verify the tag target, all four attached files, both
+checksums, and the user-facing installation commands.
+
+If any candidate digest changes, qualification is invalid. If any required
+check is incomplete or rejected, leave the release as a draft.
