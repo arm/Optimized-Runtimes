@@ -52,7 +52,9 @@ VIDEO_RENDERED ?= $(ROOT)/examples/video/output/rendered.mp4
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
 DATA ?= coco128.yaml
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
-BENCHMARK_OUTPUT ?= $(ROOT)/benchmarks/reporting/output/current
+# Evidence is immutable, so each default invocation needs a fresh directory.
+BENCHMARK_RUN_ID := $(shell date -u +%Y%m%dT%H%M%S%NZ)-$(shell printf '%.12s' "$(SOURCE_REVISION)")
+BENCHMARK_OUTPUT ?= $(ROOT)/benchmarks/reporting/output/$(BENCHMARK_RUN_ID)
 
 # Development checks
 MODELS ?= $(ROOT)/dist/models/yolo26n-320:$(ROOT)/dist/models/yolo26n-480:$(ROOT)/dist/models/yolo26n-640:$(ROOT)/dist/models/yolo26n-800:$(ROOT)/dist/models/yolo26n-960:$(ROOT)/dist/models/yolo26n-1280
