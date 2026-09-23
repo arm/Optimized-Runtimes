@@ -33,7 +33,7 @@ own runtime.
 | File | Owner | Contents |
 | --- | --- | --- |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | `make release` | Ready-to-run native installation, converter and application API wheels, project license, and third-party licenses |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | CMake and CPack | Optional C header and unversioned linker name for C or C++ development |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | `make release` from the CMake development install component | Optional C header and unversioned linker name for C or C++ development |
 | `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
 
 GitHub's archive for the release tag is the complete project source
@@ -65,8 +65,8 @@ does not repeat an unchanged scan.
 A separate, manually triggered GitHub Actions workflow operates on the current
 `main` commit and reads its version from `VERSION`. The ordinary `main` build
 remains the only build: it has already run the tests, built the converter and
-application API wheels, had CMake and CPack produce the runtime and development
-components, and assembled the final distribution. Candidate construction:
+application API wheels, installed CMake's runtime and development components,
+and assembled the final distribution. Candidate construction:
 
 1. verifies the current `main` commit and its version;
 2. requires a successful build and successful Black Duck run for that exact
@@ -74,16 +74,15 @@ components, and assembled the final distribution. Candidate construction:
    reviewed;
 3. downloads the retained `main-build-<commit>` artifact without rebuilding;
 4. verifies the final distribution checksums and expected native, Python, and
-   license files;
-5. adds a manifest identifying the source commit, workflow runs, and unchanged
-   distribution files; and
-6. creates one draft GitHub release targeting that commit.
+   license files; and
+5. creates one draft GitHub release targeting that commit and records the
+   source, build, and Black Duck run in its notes.
 
-The top-level `make release` command delegates native packaging to CMake and
-CPack, builds the converter and application API wheels, and combines those
-outputs into the single platform distribution users need. The build workflow
-only invokes that repository command and retains its final outputs. The
-candidate workflow only verifies and annotates those retained bytes. It uses
+The top-level `make release` command stages the native files through CMake's
+install rules, builds the converter and application API wheels, and combines
+those outputs into the single platform distribution users need. The build
+workflow only invokes that repository command and retains its final outputs.
+The candidate workflow verifies those retained bytes. It uses
 the `release-candidate` GitHub environment so repository administrators can add
 required reviewers before granting permission to create a draft release.
 
@@ -113,9 +112,8 @@ bytes into the draft release used by qualification.
 Qualification is performed by a human on a Raspberry Pi 5 matching
 [`supported-environment.md`](supported-environment.md); it does not require a
 self-hosted GitHub runner. The maintainer downloads the candidate with the
-GitHub interface or `gh release download` and verifies its manifest and
-checksums. Draft releases are visible to maintainers but are not public
-releases.
+GitHub interface or `gh release download` and verifies its checksums. Draft
+releases are visible to maintainers but are not public releases.
 
 The Pi is freshly restarted before qualification. After startup activity has
 settled, qualification runs without unrelated user workloads competing for
@@ -136,7 +134,7 @@ Its benchmark log, artifact identities, and before-and-after host context are
 retained rather than reproduced by release-specific measurement code.
 
 Qualification produces a normal test report and one evidence directory. The
-report identifies the candidate manifest, source commit, Pi environment,
+report identifies the release checksums, source commit, Pi environment,
 commands and outcomes, camera model when applicable, and the accuracy and
 performance evidence. A changed candidate digest invalidates the report and
 requires qualification of the new file.

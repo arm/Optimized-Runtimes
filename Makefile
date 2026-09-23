@@ -4,7 +4,6 @@ SHELL := /bin/bash
 # Shared commands and repository paths
 ROOT := $(CURDIR)
 PYTHON ?= python3
-PACKAGE_PYTHON ?= $(PYTHON)
 CLANG_FORMAT ?= clang-format
 LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
@@ -25,8 +24,6 @@ RUNTIME_DIST ?= $(ROOT)/dist/runtime
 DEFAULT_RUNTIME := $(RUNTIME_DIST)/lib/libarm-yolo26n.so.0
 RUNTIME ?= $(DEFAULT_RUNTIME)
 PACKAGE_DIST ?= $(ROOT)/dist/packages
-RUNTIME_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
-RUNTIME_DEVELOPMENT_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-rpi5-$(VERSION)-development.tar.gz
 PYTHON_API_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n-$(VERSION)-py3-none-any.whl
 CONVERTER_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n_converter-$(VERSION)-py3-none-any.whl
 RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.gz
@@ -165,45 +162,28 @@ runtime:
 
 # Release packaging
 .PHONY: release
-release: _release-assemble
-
-.PHONY: _release-runtime
-_release-runtime: runtime
-	mkdir -p "$(PACKAGE_DIST)"
-	cpack --config "$(RUNTIME_BUILD)/CPackConfig.cmake" -B "$(PACKAGE_DIST)"
-
-.PHONY: _release-converter
-_release-converter:
-	mkdir -p "$(PACKAGE_DIST)"
-	@staging="$$(mktemp -d)"; \
-	  trap 'rm -rf -- "$$staging"' EXIT; \
-	  cp src/converter/*.py src/converter/pyproject.toml \
-	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
-	  PIP_CONFIG_FILE=/dev/null "$(PACKAGE_PYTHON)" -m pip wheel \
-	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
-
-.PHONY: _release-python
-_release-python:
-	mkdir -p "$(PACKAGE_DIST)"
-	PIP_CONFIG_FILE=/dev/null "$(PACKAGE_PYTHON)" -m pip wheel \
-	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
-
-.PHONY: _release-assemble
-_release-assemble: _release-runtime _release-converter _release-python
-	@cd "$(PACKAGE_DIST)" && sha256sum --check "$(notdir $(RUNTIME_PACKAGE)).sha256"
-	@cd "$(PACKAGE_DIST)" && sha256sum --check \
-	  "$(notdir $(RUNTIME_DEVELOPMENT_PACKAGE)).sha256"
+release: runtime _release-converter _release-api
+	@# The runtime archive combines CMake's installed runtime with both wheels.
+	@# The development archive contains CMake's header and linker name. A staging
+	@# directory keeps those layouts separate and makes publication into
+	@# dist/packages atomic.
 	@staging="$$(mktemp -d --tmpdir="$(PACKAGE_DIST)" .release.XXXXXX)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
-	  tar --extract --gzip --file "$(RUNTIME_PACKAGE)" --directory "$$staging"; \
-	  install --directory "$$staging/python"; \
+	  mkdir "$$staging/runtime" "$$staging/development"; \
+	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/runtime" \
+	    --component runtime; \
+	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/development" \
+	    --component development; \
+	  install --directory "$$staging/runtime/python"; \
 	  install --mode 0644 "$(PYTHON_API_PACKAGE)" "$(CONVERTER_PACKAGE)" \
-	    "$$staging/python/"; \
+	    "$$staging/runtime/python/"; \
 	  tar --create --gzip --file "$$staging/$(notdir $(RELEASE_PACKAGE))" \
 	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
-	    --directory "$$staging" lib python share; \
-	  cp "$(RUNTIME_DEVELOPMENT_PACKAGE)" \
-	    "$$staging/$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))"; \
+	    --directory "$$staging/runtime" lib python share; \
+	  tar --create --gzip \
+	    --file "$$staging/$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+	    --directory "$$staging/development" include lib; \
 	  cd "$$staging"; \
 	  sha256sum "$(notdir $(RELEASE_PACKAGE))" \
 	    > "$(notdir $(RELEASE_PACKAGE)).sha256"; \
@@ -212,6 +192,24 @@ _release-assemble: _release-runtime _release-converter _release-python
 	  mv "$(notdir $(RELEASE_PACKAGE))" "$(notdir $(RELEASE_PACKAGE)).sha256" \
 	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
 	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256" "$(PACKAGE_DIST)/"
+
+.PHONY: _release-converter
+_release-converter:
+	mkdir -p "$(PACKAGE_DIST)"
+	@# Give setuptools a self-contained project without writing build state into
+	@# the converter source directory or duplicating the repository version.
+	@staging="$$(mktemp -d)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  cp src/converter/*.py src/converter/pyproject.toml \
+	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
+	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
+
+.PHONY: _release-api
+_release-api:
+	mkdir -p "$(PACKAGE_DIST)"
+	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
 .PHONY: examples example-video
@@ -294,10 +292,10 @@ lint:
 	  -exec "$(CLANG_FORMAT)" --dry-run --Werror {} +
 	@# Ruff's formatter verifies the Python source formatting.
 	"$(PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
-	  benchmarks examples internal/release tests
+	  benchmarks examples tests
 	@# Ruff's linter detects Python correctness, style, and import problems.
 	"$(PYTHON)" -m ruff check src/converter src/runtime/api/python/arm_yolo26n \
-	  benchmarks examples internal/release tests
+	  benchmarks examples tests
 	@# Import Linter enforces the converter's declared dependency direction.
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -c \
 	  'from importlinter.cli import lint_imports; raise SystemExit(lint_imports(no_cache=True))'
@@ -308,8 +306,7 @@ lint:
 	@# Bash parses every benchmark shell script without executing it.
 	@find benchmarks/ultralytics -maxdepth 1 -type f -name '*.sh' -exec bash -n {} +
 	@# Python's JSON parser verifies the checked-in JSON documents.
-	@shopt -s nullglob; for document in src/converter/*.json benchmarks/reporting/*.json \
-	    internal/release/*.json; do \
+	@shopt -s nullglob; for document in src/converter/*.json benchmarks/reporting/*.json; do \
 	  "$(PYTHON)" -m json.tool "$$document" >/dev/null; \
 	done
 	@# Git detects whitespace errors introduced by the current change.

@@ -20,7 +20,7 @@ concurrency:
 jobs:
   candidate:
     if: github.ref == 'refs/heads/main'
-    name: Assemble draft release
+    name: Create draft release
     runs-on: ubuntu-24.04-arm
     environment: release-candidate
     env:
@@ -103,18 +103,44 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ steps.find_runs.outputs.build_run_id }}
 
-      - name: Record candidate evidence
-        env:
-          BUILD_RUN_URL: ${{ steps.find_runs.outputs.build_run_url }}
-          BLACK_DUCK_RUN_URL: ${{ steps.find_runs.outputs.black_duck_run_url }}
+      - name: Verify retained release packages
         run: |
-          python3 -m internal.release.candidate \
-            --package-dir build/release/input \
-            --version "$RELEASE_VERSION" \
-            --revision "$RELEASE_REVISION" \
-            --build-run-url "$BUILD_RUN_URL" \
-            --black-duck-run-url "$BLACK_DUCK_RUN_URL" \
-            --actor "$GITHUB_ACTOR"
+          packages="$PWD/build/release/input"
+          runtime="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64.tar.gz"
+          development="arm-yolo26n-$RELEASE_VERSION-rpi5-trixie-arm64-dev.tar.gz"
+          test "$(find "$packages" -maxdepth 1 -type f | wc -l)" -eq 4
+          test -f "$packages/$runtime"
+          test -f "$packages/$runtime.sha256"
+          test -f "$packages/$development"
+          test -f "$packages/$development.sha256"
+          (cd "$packages" && sha256sum --check "$runtime.sha256")
+          (cd "$packages" && sha256sum --check "$development.sha256")
+
+          tar --list --gzip --file "$packages/$runtime" > build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so.0" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "lib/libarm-yolo26n.so.$RELEASE_VERSION" build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp \
+            "python/arm_yolo26n_converter-$RELEASE_VERSION-py3-none-any.whl" \
+            build/release/runtime-files.txt
+          grep --fixed-strings --line-regexp "share/doc/arm-yolo26n/LICENSE" \
+            build/release/runtime-files.txt
+          for dependency in cpuinfo fxdiv pthreadpool xnnpack; do
+            grep --fixed-strings --line-regexp \
+              "share/doc/arm-yolo26n/licenses/$dependency/LICENSE" \
+              build/release/runtime-files.txt
+          done
+
+          tar --list --gzip --file "$packages/$development" \
+            > build/release/development-files.txt
+          grep --fixed-strings --line-regexp "include/arm_yolo26n.h" \
+            build/release/development-files.txt
+          grep --fixed-strings --line-regexp "lib/libarm-yolo26n.so" \
+            build/release/development-files.txt
 
       - name: Create draft release
         env:

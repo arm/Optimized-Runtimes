@@ -28,7 +28,6 @@ src = [
   "src/converter",
   "src/runtime/api/python/arm_yolo26n",
   "benchmarks/reporting",
-  "internal/release",
 ]
 
 [tool.ruff.lint]
@@ -63,7 +62,6 @@ files = [
   "src/runtime/api/python/arm_yolo26n",
   "benchmarks/reporting",
   "benchmarks/ultralytics/benchmark.py",
-  "internal/release",
 ]
 strict = true
 disallow_any_explicit = true
@@ -77,7 +75,6 @@ paths = [
   "src/runtime/api/python/arm_yolo26n",
   "benchmarks/reporting",
   "benchmarks/ultralytics/benchmark.py",
-  "internal/release",
 ]
 min_confidence = 90
 sort_by_size = true
