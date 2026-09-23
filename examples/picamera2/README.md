@@ -42,25 +42,20 @@ camera with `CAMERA=1`.
 On a Raspberry Pi desktop, use QtGL:
 
 ```bash
-examples/.venv/bin/python -m examples.picamera2.live \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
-  --model "$PWD/dist/models/yolo26n-640" \
-  --preview qtgl
+make example-camera CAMERA_PREVIEW=qtgl
 ```
 
 For an SSH process, forward the active desktop environment if needed:
 
 ```bash
 DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR="/run/user/$(id -u)" \
-  examples/.venv/bin/python -m examples.picamera2.live \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
-  --model "$PWD/dist/models/yolo26n-640" \
-  --preview qtgl
+  make example-camera CAMERA_PREVIEW=qtgl
 ```
 
-Use `--preview auto` to let Picamera2 choose, or stop the graphical desktop and
-use `--preview drm` for direct console display. Preview dimensions are UI
-settings and do not change the model's detector resolution.
+Use `CAMERA_PREVIEW=auto` to let Picamera2 choose, or stop the graphical desktop
+and use `CAMERA_PREVIEW=drm` for direct console display. Preview dimensions are
+UI settings and do not change the model's detector resolution. Additional live
+options may be supplied through `CAMERA_ARGS`.
 
 The status panel reports detector throughput, not the independently running
 camera refresh rate:

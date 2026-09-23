@@ -48,7 +48,15 @@ VIDEO_SHA256 := 710831289c00251c86eafb0b0d11cf6190fda02f95bcfaa5037511eabb5c9de8
 VIDEO_OUTPUT ?= $(ROOT)/examples/video/output/detections.json
 VIDEO_RENDERED ?= $(ROOT)/examples/video/output/rendered.mp4
 CAMERA ?= 0
+CAMERA_PREVIEW ?=
 CAMERA_ARGS ?=
+# The camera target stays display-independent unless the caller selects one of
+# the preview backends supported by examples.picamera2.live.
+ifeq ($(strip $(CAMERA_PREVIEW)),)
+CAMERA_EXAMPLE := examples.picamera2.detect
+else
+CAMERA_EXAMPLE := examples.picamera2.live
+endif
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
@@ -107,8 +115,8 @@ help:
 	  '  make example-video' \
 	  '      Write detections and a rendered MP4 under examples/video/output/.' \
 	  '' \
-	  '  make example-camera [CAMERA=0] [CAMERA_ARGS="..."]' \
-	  '      Run Picamera2 detection until interrupted; no display is required.' \
+	  '  make example-camera [CAMERA=0] [CAMERA_PREVIEW=qtgl|drm|auto]' \
+	  '      Run Picamera2 detection; select CAMERA_PREVIEW for the live UI.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
 	  '      Prepare Ultralytics, then validate the selected runtime and model.' \
@@ -326,8 +334,8 @@ example-video: examples $(VIDEO)
 	  "$(VIDEO_OUTPUT)" "$(VIDEO_RENDERED)"
 
 example-camera: examples
-	"$(EXAMPLES_PYTHON)" -m examples.picamera2.detect \
-	  --runtime "$(RUNTIME)" --model "$(MODEL)" --camera "$(CAMERA)" $(CAMERA_ARGS)
+	"$(EXAMPLES_PYTHON)" -m $(CAMERA_EXAMPLE) --runtime "$(RUNTIME)" \
+	  --model "$(MODEL)" --camera "$(CAMERA)"$(if $(CAMERA_PREVIEW), --preview "$(CAMERA_PREVIEW)") $(CAMERA_ARGS)
 
 # Ultralytics benchmark
 # Recreate the benchmark environment only when one of its installed inputs
