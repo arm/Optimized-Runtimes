@@ -14,6 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ._model import _load_model
+from ._runtime import _runtime_path
 from .errors import Yolo26nError
 
 __all__ = ["Yolo26nTensorSession"]
@@ -175,15 +176,19 @@ class Yolo26nTensorSession:
     deliberately non-reentrant; create independent sessions in separate
     processes when concurrent isolation is required. Prefer using the session
     as a context manager so the native resources are released deterministically.
-    The runtime and model paths are keyword-only so callers cannot silently
-    reverse two path-like arguments.
+    Release wheels provide the runtime library. The optional ``runtime``
+    override is for source builds and runtime development.
     """
 
-    def __init__(self, *, runtime: str | Path, model: str | Path) -> None:
-        runtime_path = Path(runtime).expanduser().resolve()
-        if not runtime_path.is_file():
-            raise FileNotFoundError(f"YOLO26n runtime library does not exist: {runtime_path}")
+    def __init__(
+        self,
+        *,
+        model: str | Path,
+        runtime: str | Path | None = None,
+    ) -> None:
+        runtime_path = _runtime_path(runtime)
         model_data = _load_model(model)
+        self._runtime_path = runtime_path
         self.input_shape = model_data.input_shape
         self.output_shape = model_data.output_shape
         self.class_names = model_data.class_names
@@ -214,6 +219,11 @@ class Yolo26nTensorSession:
     @property
     def closed(self) -> bool:
         return not bool(self._handle.value)
+
+    @property
+    def runtime_path(self) -> Path:
+        """Return the runtime library selected for this session."""
+        return self._runtime_path
 
     def execute(self, tensor: _FloatArray) -> _FloatArray:
         """Execute one FP32 NCHW tensor and return the raw YOLO26n prediction.

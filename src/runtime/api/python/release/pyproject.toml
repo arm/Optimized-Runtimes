@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arm-yolo26n"
+dynamic = ["version"]
+description = "YOLO26n inference for Raspberry Pi 5"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE", "licenses/*/LICENSE"]
+dependencies = [
+  "numpy==2.2.4",
+  "opencv-python-headless==5.0.0.93",
+]
+
+[tool.setuptools]
+packages = ["arm_yolo26n"]
+
+[tool.setuptools.package-data]
+arm_yolo26n = ["libarm-yolo26n.so.0"]
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION"]}

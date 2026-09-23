@@ -44,6 +44,9 @@ class _TensorSession(Protocol):
     @property
     def closed(self) -> bool: ...
 
+    @property
+    def runtime_path(self) -> Path: ...
+
     def execute(self, tensor: _FloatArray) -> _FloatArray: ...
 
     def _prepare_image_without_resize(
@@ -115,19 +118,19 @@ class Yolo26Detector:
     time spent preprocessing, executing the runtime, and postprocessing. One
     input tensor is reused between calls, so ``detect`` and ``close`` are
     deliberately non-reentrant; use separate processes for concurrent
-    isolation. The runtime and model paths are keyword-only so callers cannot
-    silently reverse two path-like arguments.
+    isolation. Release wheels provide the runtime library; ``runtime`` may be
+    supplied when exercising a source build.
     """
 
     def __init__(
         self,
         *,
-        runtime: str | Path,
         model: str | Path,
+        runtime: str | Path | None = None,
         config: DetectorConfig | None = None,
     ) -> None:
         self.config = config or DetectorConfig()
-        self._session: _TensorSession = Yolo26nTensorSession(runtime=runtime, model=model)
+        self._session: _TensorSession = Yolo26nTensorSession(model=model, runtime=runtime)
         self._lifecycle_lock = threading.Lock()
         try:
             class_names = tuple(self._session.class_names)
@@ -172,6 +175,11 @@ class Yolo26Detector:
     @property
     def closed(self) -> bool:
         return self._session.closed
+
+    @property
+    def runtime_path(self) -> Path:
+        """Return the runtime library selected for this detector."""
+        return self._session.runtime_path
 
     def detect(
         self,

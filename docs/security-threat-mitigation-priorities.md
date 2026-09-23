@@ -89,9 +89,9 @@ filesystem cache was approximately 6.58 GB.
    findings before publication.
 2. When the release-candidate workflow is implemented, record the build
    environment used for its published artifacts.
-3. Publish a version-specific runtime archive whose digest is bound to the
-   qualified build. Official download tooling must verify that identity before
-   installation or reuse.
+3. Publish version-specific application and converter wheels whose digests are
+   bound to the qualified build. Official download tooling must verify those
+   identities before installation or reuse.
 
 The repository-level vulnerability-reporting path, supported-version policy,
 and Arm PSIRT routing are recorded in [`SECURITY.md`](../SECURITY.md).

@@ -41,16 +41,22 @@ def _write_model(directory: Path, payload: bytes) -> None:
 
 
 class RuntimeAdmissionTests(unittest.TestCase):
-    def test_session_requires_runtime_and_model_as_separate_inputs(self) -> None:
+    def test_source_install_requires_a_runtime_override(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(FileNotFoundError, "bundled YOLO26n runtime library"):
+                Yolo26nTensorSession(model=root / "missing-model")
+
+    def test_session_accepts_a_runtime_override_for_source_development(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
             with self.assertRaisesRegex(FileNotFoundError, "runtime library"):
-                Yolo26nTensorSession(runtime=root / "missing.so", model=root / "missing-model")
+                Yolo26nTensorSession(model=root / "missing-model", runtime=root / "missing.so")
 
             runtime = root / "libarm-yolo26n.so.0"
             runtime.write_bytes(b"not loaded because model admission fails first")
             with self.assertRaisesRegex(FileNotFoundError, "model directory"):
-                Yolo26nTensorSession(runtime=runtime, model=root / "missing-model")
+                Yolo26nTensorSession(model=root / "missing-model", runtime=runtime)
 
     def test_session_rejects_a_model_that_does_not_match_its_manifest(self) -> None:
         with TemporaryDirectory() as directory:

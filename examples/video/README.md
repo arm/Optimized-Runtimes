@@ -13,14 +13,15 @@ make examples
 make example-video
 ```
 
-`make examples` creates the example environment, obtains a runtime and the
-official YOLO26n checkpoint, and converts the checkpoint locally. It does not
-run an example. `make example-video` obtains the test video, runs inference,
-and writes `examples/video/output/detections.json`. Neither command compiles
-native code or installs Torch or Ultralytics.
+`make examples` creates the example environment, installs the released
+application and converter wheels, obtains the official YOLO26n checkpoint,
+and converts the checkpoint locally. It does not run an example.
+`make example-video` obtains the test video, runs inference, and writes
+`examples/video/output/detections.json`. Neither command compiles native code
+or installs Torch or Ultralytics.
 
 The commands below expose the individual video preparation, detection, and
-rendering stages when you want to substitute your own runtime, model, or footage.
+rendering stages when you want to substitute your own model or footage.
 
 The input is MediaPipe's object-detection `test_video.mp4`, Copyright 2019 The
 MediaPipe Authors, licensed under Apache-2.0. The `example-video` Make target
@@ -31,16 +32,18 @@ own video, provide its path explicitly:
 make example-video VIDEO=/path/to/video.mp4
 ```
 
-Run a converted model with the installed runtime:
+Run a converted model with the runtime installed by the application wheel:
 
 ```bash
 examples/.venv/bin/python -m examples.video.detect \
-  --runtime dist/runtime/lib/libarm-yolo26n.so.0 \
   --model dist/models/yolo26n-640 \
   --video downloads/media/test-video.mp4 \
   --output examples/video/output/detections.json \
   --frames 200
 ```
+
+Runtime developers may add `--runtime /path/to/libarm-yolo26n.so.0` to test a
+source build instead of the installed wheel's library.
 
 Decode and resize complete before timing, and one inference warms each runtime.
 The example derives frame width from the selected model rather than

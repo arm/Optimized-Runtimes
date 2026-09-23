@@ -23,7 +23,7 @@ _PREVIEWS = {"auto": True, "drm": Preview.DRM, "qtgl": Preview.QTGL}
 
 @dataclass(frozen=True, slots=True)
 class _Arguments:
-    runtime: Path
+    runtime: Path | None
     model: Path
     camera: int
     framerate: float
@@ -63,7 +63,11 @@ class _Metrics:
 
 def _parse_args() -> tuple[_Arguments, DetectorConfig]:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime", type=Path, required=True)
+    parser.add_argument(
+        "--runtime",
+        type=Path,
+        help="override the runtime bundled with the installed arm-yolo26n package",
+    )
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--framerate", type=float, default=30.0)
@@ -191,7 +195,7 @@ def _run_detection_loop(
 def _run(args: _Arguments, detector_config: DetectorConfig) -> _Metrics:
     with ExitStack() as resources:
         detector = resources.enter_context(
-            Yolo26Detector(runtime=args.runtime, model=args.model, config=detector_config)
+            Yolo26Detector(model=args.model, runtime=args.runtime, config=detector_config)
         )
         camera = Picamera2(args.camera)
         resources.callback(camera.close)

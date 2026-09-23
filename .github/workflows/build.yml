@@ -71,16 +71,34 @@ jobs:
             PYTHON=build/ci/venv/bin/python \
             CHECKPOINT=build/ci/yolo26n.pt \
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
+      - name: Test installed release wheels
+        env:
+          MODEL: ${{ github.workspace }}/dist/models/yolo26n-640
+        run: |
+          build/ci/venv/bin/python -m pip install --force-reinstall --no-deps \
+            dist/packages/arm_yolo26n-*-linux_aarch64.whl \
+            dist/packages/arm_yolo26n_converter-*-any.whl
+          cd /tmp
+          "$GITHUB_WORKSPACE/build/ci/venv/bin/python" - <<'PY'
+          import os
+          import numpy as np
+          from arm_yolo26n import Yolo26nTensorSession
+
+          with Yolo26nTensorSession(model=os.environ["MODEL"]) as session:
+              output = session.execute(np.zeros(session.input_shape, dtype=np.float32))
+              assert tuple(output.shape) == session.output_shape
+              assert session.runtime_path.name == "libarm-yolo26n.so.0"
+          PY
       - name: Retain main build packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: main-build-${{ github.sha }}
           path: |
-            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz
-            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64.tar.gz.sha256
-            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz
-            dist/packages/arm-yolo26n-*-rpi5-trixie-arm64-dev.tar.gz.sha256
+            dist/packages/arm_yolo26n-*-linux_aarch64.whl
+            dist/packages/arm_yolo26n-*-linux_aarch64.whl.sha256
+            dist/packages/arm_yolo26n_converter-*-any.whl
+            dist/packages/arm_yolo26n_converter-*-any.whl.sha256
           if-no-files-found: error
           retention-days: 30
           compression-level: 0

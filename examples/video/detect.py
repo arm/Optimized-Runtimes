@@ -17,7 +17,7 @@ from arm_yolo26n import DetectionResult, Yolo26Detector
 
 @dataclass(frozen=True, slots=True)
 class _Arguments:
-    runtime: Path
+    runtime: Path | None
     model: Path
     video: Path
     output: Path
@@ -43,7 +43,11 @@ def _digest(path: Path) -> str:
 
 def _parse_args() -> _Arguments:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime", type=Path, required=True)
+    parser.add_argument(
+        "--runtime",
+        type=Path,
+        help="override the runtime bundled with the installed arm-yolo26n package",
+    )
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--video", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -51,7 +55,7 @@ def _parse_args() -> _Arguments:
     args = parser.parse_args()
     if args.frames <= 0:
         parser.error("--frames must be positive")
-    if not args.runtime.is_file():
+    if args.runtime is not None and not args.runtime.is_file():
         parser.error(f"--runtime is not a file: {args.runtime}")
     if not args.model.is_dir():
         parser.error(f"--model is not a directory: {args.model}")
@@ -157,6 +161,7 @@ def _run_model(
 
 def _write_results(
     args: _Arguments,
+    runtime: Path,
     video: _PreloadedVideo,
     records: list[dict[str, object]],
     summary: dict[str, float | int],
@@ -173,7 +178,7 @@ def _write_results(
             "fps": video.source_fps,
         },
         "inference_frame": {"width": input_width, "height": input_height},
-        "runtime_library": str(args.runtime.resolve()),
+        "runtime_library": str(runtime),
         "model_directory": str(args.model.resolve()),
         "runtime": "yolo26n",
         "measurement": {
@@ -190,10 +195,11 @@ def _write_results(
 
 def main() -> int:
     args = _parse_args()
-    with Yolo26Detector(runtime=args.runtime, model=args.model) as detector:
+    with Yolo26Detector(model=args.model, runtime=args.runtime) as detector:
         video = _preload(args.video, args.frame_count, detector.input_shape[3])
         records, summary = _run_model(detector, video)
-    _write_results(args, video, records, summary)
+        runtime = detector.runtime_path
+    _write_results(args, runtime, video, records, summary)
     print(
         "Detection performance:\n"
         f"  throughput: {summary['model_fps']:.2f} FPS\n"

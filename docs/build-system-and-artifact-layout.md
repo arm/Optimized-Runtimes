@@ -52,7 +52,7 @@ the architecture:
 | Native configuration and dependencies | CMake | `src/runtime` and pinned dependency revisions | CMake build tree |
 | Native compilation and verification | CMake and CTest | Configured native build tree | Runtime shared library and test results |
 | Native installation | CMake install rules | Built runtime | Prefix using the platform installation layout |
-| Release packages | Top-level Makefile over CMake install rules and Python packaging metadata | Native installation, converter, and application API | Publishable archives under `dist/packages/` |
+| Release packages | Top-level Makefile over CMake install rules and Python packaging metadata | Built runtime, converter, and application API | Publishable wheels under `dist/packages/` |
 | Example preparation | `examples` workflow | Python package, checkpoint, media, and runtime source | Reusable example inputs and converted model |
 | Example execution | Individual example | Runtime, converted model, and input media or camera | Results beside that example under `output/` |
 | Ultralytics preparation | `benchmarks/ultralytics` | Pinned benchmark requirements and repository patch | Patched environment under `benchmarks/ultralytics/.venv` |
@@ -70,15 +70,15 @@ downloads/
     yolo26n.pt
   media/
     test-video.mp4
-  runtime/<release>/                Runtime archive and published checksum
+  runtime/<release>/                Application and converter wheels and checksums
 
 build/
   runtime/                         CMake cache, dependencies, objects, and tests
 
 dist/
-  runtime/                         Installed or downloaded runtime distribution
+  runtime/                         CMake-installed source build for development
   models/<model>-<resolution>/     Locally converted model and manifest
-  packages/                        Component and final distribution packages
+  packages/                        Publishable wheels and checksums
 
 .venv/                             Hash-locked repository check environment
 examples/.venv/                    Example application environment
@@ -92,19 +92,18 @@ The meanings are strict:
 
 - `downloads/` contains verified external files retained for reuse. The
   checkpoint is common to all examples. The test video is added only when the
-  prerecorded-video example is requested. A downloaded runtime archive and
-  its published checksum remain here as the cached inputs used to establish
-  `dist/runtime/`.
+  prerecorded-video example is requested. Downloaded release wheels and their
+  published checksums remain here as reusable example inputs.
 - `build/` contains CMake's private native build state. Nothing under `build/`
   is a supported application input.
-- `dist/` contains final runnable artifacts. A source build installs the
-  runtime into `dist/runtime/`; downloading a release populates that same
-  directory. Locally converted models live under `dist/models/`. Presence
-  under `dist/` means the artifact is ready to use, not that this project has
-  the right to redistribute a particular set of weights.
-- `dist/packages/` contains the converter and application API wheels plus the
-  final runtime and development distributions. The build retains only the
-  final files that can become a release candidate.
+- `dist/` contains final locally produced artifacts. A source build installs
+  the runtime into `dist/runtime/`, while converted models live under
+  `dist/models/`. Presence under `dist/` means the artifact is ready to use,
+  not that this project has the right to redistribute a particular set of
+  weights.
+- `dist/packages/` contains the platform-specific application wheel, portable
+  converter wheel, and their checksums. These are the files retained for a
+  release candidate.
 - Environments and user-visible results live with the workflow that owns them.
   A user running the video example finds its output under
   `examples/video/output/`, not in an unrelated build directory.
@@ -123,33 +122,32 @@ runtime:
 | --- | --- | --- |
 | `build/runtime/` | CMake cache, fetched native dependency sources, object files, linker map, the uninstalled shared library, and CTest state | These files contain machine-local configuration and can be recreated from source. The linked library must exist here before CMake can test and install it, but applications never load it from this path. |
 
-There is only one repository-local runtime used by applications:
-`dist/runtime/`. A local source build and a verified release download are two
-ways to establish that same directory. The shared library in `build/runtime/`
-is an unavoidable intermediate in the CMake lifecycle, not a second supported
-runtime installation.
+`dist/runtime/` is the CMake-installed source build used by runtime developers
+and internal benchmarks. Released applications load the same library layout
+from the installed application wheel. The shared library in `build/runtime/`
+is an unavoidable intermediate in the CMake lifecycle, not a supported runtime
+installation.
 
 ## Runtime and model boundary
 
-The public deployment inputs should be separate:
+The execution inputs remain separate:
 
 ```text
 runtime shared library + converted model directory -> one runtime session
 ```
 
 A converted model directory contains `model.bin` and its manifest. It does not
-contain a copy of the runtime. A runtime release contains the shared library,
-project license, and native dependency notices. It does not contain weights.
+contain a copy of the runtime. The application wheel contains the shared
+library, project license, and native dependency notices. It does not contain
+weights.
 
-The Python session and detector interfaces therefore accept a model
-directory and a runtime-library location independently. Resolution and class
-metadata continue to come from the model manifest. The Python layer verifies
-the `model.bin` bytes against that manifest and passes the bytes to the native
-ABI, which copies them and establishes whether the runtime can execute them.
-
-The runtime location can later default to an installed system or Python-package
-location. During this refactor it should remain explicit wherever implicit
-selection would make the source of the executable code unclear.
+The Python session and detector interfaces therefore require the model
+directory and locate their installed runtime automatically. Resolution and
+class metadata continue to come from the model manifest. The Python layer
+verifies the `model.bin` bytes against that manifest and passes the bytes to the
+native ABI, which copies them and establishes whether the runtime can execute
+them. An explicit runtime override remains available for source development
+and qualification, not as an ordinary application requirement.
 
 Removing the combined bundle also removes `assemble_bundle.cmake` and the
 `yolo26n-bundle` target. Because the software is unreleased, no compatibility
@@ -158,11 +156,12 @@ bundle or forwarding command is needed.
 ## Native packaging
 
 CMake defines the native target, verification tests, and runtime and
-development install components. `make release` stages those components using
-`cmake --install` and creates the final archives once. The versioned shared
-library and notices are runtime files, while the unversioned linker name and C
-header are development files. A future Debian package can consume those same
-install components without changing their ownership or layout.
+development install components. `make release` places CMake's verified runtime
+library inside the platform-specific application wheel together with the
+project and native-dependency licenses. The converter remains a separate
+portable wheel. The project does not currently publish C or C++ development
+files; a future Debian package can consume CMake's existing development
+component when that interface has real users and a reviewed package contract.
 
 The runtime uses a Debian-compatible library name and SONAME:
 
@@ -183,22 +182,23 @@ renaming the public library.
 
 The library name and SONAME identify the supported API and ABI. They do not
 encode the target machine: Debian package architecture and Multi-Arch metadata
-carry that information, and release archives identify Raspberry Pi 5 in their
-names and metadata. The Python distribution and import names likewise identify
-the application API; native compatibility is enforced by the installed runtime
-package and by the runtime's model checks.
+carry that information. The application wheel's `linux_aarch64` platform tag
+prevents installation on another architecture, while the documented Raspberry
+Pi 5 boundary and runtime model checks define the narrower supported target.
 
 ## Runtime selection for examples and benchmarks
 
-Preparation should establish `dist/runtime/` in this order:
+Release wheels install the runtime library inside `arm_yolo26n`; sessions and
+detectors locate it automatically. `make examples` downloads and verifies the
+application and converter wheels for the checkout's version, then installs
+them into `examples/.venv`. A caller who only wants to run an example needs
+neither CMake nor a compiler.
 
-1. keep an already valid runtime distribution in `dist/runtime/`; or
-2. download, verify, and extract the configured release into `dist/runtime/`.
-
-`make runtime` builds, tests, and installs a source build into that same
-distribution directory through CMake. Example preparation does not inspect the
-CMake build tree or perform native installation. A caller who only wants to run
-an example needs neither CMake nor a compiler.
+`make runtime` continues to build, test, and install a source build into
+`dist/runtime/`. The Python API and example commands retain an explicit runtime
+override for source development and qualification. The internal Ultralytics
+benchmark also keeps its explicit runtime input so its report identifies the
+exact library under measurement.
 
 Checkpoint and media downloads follow the same rule: reuse a file only after
 its expected digest has been verified, otherwise download it atomically and
@@ -214,7 +214,7 @@ to repeat `yolo26n` everywhere.
 | `make model [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then convert it into `dist/models/`; no native build |
 | `make model-check [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then validate conversion behavior and write a receipt |
 | `make runtime` | Configure, compile, run CTest, and install into `dist/runtime/` |
-| `make release` | Produce the native, converter, and Python API release packages in `dist/packages/` |
+| `make release` | Produce the application and converter release wheels and checksums in `dist/packages/` |
 | `make clean` | Remove reproducible artifacts under `build/` and `dist/` while preserving downloads, environments, and results |
 | `make examples` | Prepare the example environment, verified inputs, runtime selection, and converted model; do not run an example |
 | `make example-video` | Run prerecorded-video inference and write its detection document and rendered video |
@@ -233,17 +233,15 @@ component that owns the relevant contract.
 `make examples` is setup. It may be rerun safely and performs only missing or
 invalid work:
 
-1. create or update `examples/.venv` with the application dependencies;
-2. make the repository's `arm_yolo26n` package importable through a normal Python
-   installation rather than `PYTHONPATH`;
+1. download and verify the release's application and converter wheels;
+2. create or update `examples/.venv` and install those wheels normally;
 3. obtain and verify the checkpoint in `downloads/`;
-4. select an existing local runtime or obtain a verified release runtime; and
-5. convert the checkpoint for the requested resolution when the expected model
-   artifact is absent or invalid.
+4. convert the checkpoint for the requested resolution when the expected model
+   artifact is absent.
 
-Make expresses the checkpoint, runtime, and converted model as file
-dependencies. The default checkpoint, runtime, and video rules use `curl`,
-`sha256sum`, and `tar`; model outputs are produced by the converter command.
+Make expresses the checkpoint, release wheels, and converted model as file
+dependencies. The download rules use `curl` and `sha256sum`; model outputs are
+produced by the converter command.
 Caller-provided artifact paths are reused and have no automatic download rule.
 
 It does not download the test video, run video inference, or open a camera.

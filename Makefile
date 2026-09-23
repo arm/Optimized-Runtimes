@@ -26,17 +26,15 @@ RUNTIME_DIST ?= $(ROOT)/dist/runtime
 DEFAULT_RUNTIME := $(RUNTIME_DIST)/lib/libarm-yolo26n.so.0
 RUNTIME ?= $(DEFAULT_RUNTIME)
 PACKAGE_DIST ?= $(ROOT)/dist/packages
-PYTHON_API_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n-$(VERSION)-py3-none-any.whl
+PYTHON_API_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n-$(VERSION)-py3-none-linux_aarch64.whl
 CONVERTER_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n_converter-$(VERSION)-py3-none-any.whl
-RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.gz
-RELEASE_DEVELOPMENT_PACKAGE := \
-	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
 RUNTIME_RELEASE ?= v$(VERSION)
-RUNTIME_ARCHIVE := $(notdir $(RELEASE_PACKAGE))
 RUNTIME_REPOSITORY := arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
-RUNTIME_URL ?= https://github.com/$(RUNTIME_REPOSITORY)/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
-RUNTIME_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
-RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
+RELEASE_URL := https://github.com/$(RUNTIME_REPOSITORY)/releases/download/$(RUNTIME_RELEASE)
+PYTHON_API_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(notdir $(PYTHON_API_PACKAGE))
+CONVERTER_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(notdir $(CONVERTER_PACKAGE))
+PYTHON_API_CHECKSUM := $(PYTHON_API_DOWNLOAD).sha256
+CONVERTER_CHECKSUM := $(CONVERTER_DOWNLOAD).sha256
 
 # Examples
 EXAMPLES_VENV ?= $(ROOT)/examples/.venv
@@ -181,35 +179,10 @@ runtime: runtime-configure
 # Release packaging
 .PHONY: release
 release: runtime _release-converter _release-api
-	@# The runtime archive combines CMake's installed runtime with both wheels.
-	@# The development archive contains CMake's header and linker name. A staging
-	@# directory keeps those layouts separate and makes publication into
-	@# dist/packages atomic.
-	@staging="$$(mktemp -d --tmpdir="$(PACKAGE_DIST)" .release.XXXXXX)"; \
-	  trap 'rm -rf -- "$$staging"' EXIT; \
-	  mkdir "$$staging/runtime" "$$staging/development"; \
-	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/runtime" \
-	    --component runtime; \
-	  cmake --install "$(RUNTIME_BUILD)" --prefix "$$staging/development" \
-	    --component development; \
-	  install --directory "$$staging/runtime/python"; \
-	  install --mode 0644 "$(PYTHON_API_PACKAGE)" "$(CONVERTER_PACKAGE)" \
-	    "$$staging/runtime/python/"; \
-	  tar --create --gzip --file "$$staging/$(notdir $(RELEASE_PACKAGE))" \
-	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
-	    --directory "$$staging/runtime" lib python share; \
-	  tar --create --gzip \
-	    --file "$$staging/$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
-	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
-	    --directory "$$staging/development" include lib; \
-	  cd "$$staging"; \
-	  sha256sum "$(notdir $(RELEASE_PACKAGE))" \
-	    > "$(notdir $(RELEASE_PACKAGE)).sha256"; \
-	  sha256sum "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
-	    > "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256"; \
-	  mv "$(notdir $(RELEASE_PACKAGE))" "$(notdir $(RELEASE_PACKAGE)).sha256" \
-	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
-	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256" "$(PACKAGE_DIST)/"
+	cd "$(PACKAGE_DIST)" && sha256sum "$(notdir $(PYTHON_API_PACKAGE))" \
+	  > "$(notdir $(PYTHON_API_PACKAGE)).sha256"
+	cd "$(PACKAGE_DIST)" && sha256sum "$(notdir $(CONVERTER_PACKAGE))" \
+	  > "$(notdir $(CONVERTER_PACKAGE)).sha256"
 
 # These targets build only repository source. They neither install nor resolve
 # dependencies; callers provide the hash-locked build environment defined by
@@ -227,26 +200,52 @@ _release-converter:
 	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
 .PHONY: _release-api
-_release-api:
+_release-api: runtime
 	mkdir -p "$(PACKAGE_DIST)"
-	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
-	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
+	@# Build from a clean staging tree so generated native code never enters the
+	@# source package while the release wheel remains self-contained.
+	@staging="$$(mktemp -d)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  cp -R src/runtime/api/python/arm_yolo26n "$$staging/arm_yolo26n"; \
+	  cp src/runtime/api/python/arm_yolo26n/README.md "$$staging/README.md"; \
+	  cp src/runtime/api/python/release/pyproject.toml \
+	    src/runtime/api/python/release/setup.py VERSION LICENSE "$$staging/"; \
+	  cp -R src/runtime/licenses "$$staging/licenses"; \
+	  install --mode 0755 "$(RUNTIME_DIST)/lib/libarm-yolo26n.so.$(VERSION)" \
+	    "$$staging/arm_yolo26n/libarm-yolo26n.so.0"; \
+	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
 # Examples
-.PHONY: examples example-video
-examples: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
-    $(EXAMPLES_VENV)/pyvenv.cfg
-	@printf 'Examples ready:\n  runtime: %s\n  model: %s\n  environment: %s\n' \
-	  "$(RUNTIME)" "$(MODEL)" "$(EXAMPLES_VENV)"
+.PHONY: examples _example-model example-video
+examples: _example-model
+	@printf 'Examples ready:\n  model: %s\n  environment: %s\n' \
+	  "$(MODEL)" "$(EXAMPLES_VENV)"
 
-$(EXAMPLES_VENV)/pyvenv.cfg: requirements-build.txt requirements.txt pyproject.toml \
-    $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
+# Public examples use the released converter wheel installed below. Source-tree
+# conversion remains available through `make model` for repository development.
+_example-model: $(EXAMPLES_VENV)/pyvenv.cfg $(CHECKPOINT)
+	@if test -f "$(MODEL)/manifest.json" && test -f "$(MODEL)/model.bin"; then \
+	  printf 'Using existing converted model: %s\n' "$(MODEL)"; \
+	elif test -e "$(MODEL)"; then \
+	  printf 'converted model is incomplete: %s\n' "$(MODEL)" >&2; exit 2; \
+	else \
+	  "$(EXAMPLES_PYTHON)" -m converter.export_yolo26n \
+	    --checkpoint "$(CHECKPOINT)" --resolution "$(RESOLUTION)" --output-dir "$(MODEL)"; \
+	fi
+
+$(EXAMPLES_VENV)/pyvenv.cfg: requirements.txt \
+    $(PYTHON_API_DOWNLOAD) $(PYTHON_API_CHECKSUM) \
+    $(CONVERTER_DOWNLOAD) $(CONVERTER_CHECKSUM)
 	@# Picamera2 is installed by Raspberry Pi OS, so camera examples must see system packages.
 	"$(PYTHON)" -m venv --system-site-packages "$(EXAMPLES_VENV)"
 	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install --require-hashes \
-	  --requirement requirements-build.txt --requirement requirements.txt
-	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install \
-	  --no-deps --no-build-isolation "$(ROOT)"
+	  --requirement requirements.txt
+	@cd "$(dir $(PYTHON_API_DOWNLOAD))" && \
+	  sha256sum --check "$(notdir $(PYTHON_API_CHECKSUM))" \
+	    "$(notdir $(CONVERTER_CHECKSUM))"
+	PIP_CONFIG_FILE=/dev/null "$(EXAMPLES_PYTHON)" -m pip install --no-deps \
+	  "$(PYTHON_API_DOWNLOAD)" "$(CONVERTER_DOWNLOAD)"
 
 $(DEFAULT_CHECKPOINT):
 	@printf 'No checkpoint was supplied; downloading the pinned checkpoint to:\n  %s\n' "$@"
@@ -255,43 +254,29 @@ $(DEFAULT_CHECKPOINT):
 	echo "$(CHECKPOINT_SHA256)  $@.tmp" | sha256sum --check
 	mv "$@.tmp" "$@"
 
-# A source build and a release download establish the same runtime path. Attach
-# the download rules only when no usable source-built distribution is present.
-ifneq ($(shell test -f "$(DEFAULT_RUNTIME)" && printf present),present)
 # Public releases use curl without requiring GitHub tooling. The authenticated
 # gh fallback keeps maintainer testing usable while the repository is internal.
-$(RUNTIME_DOWNLOAD):
+$(PYTHON_API_DOWNLOAD) $(CONVERTER_DOWNLOAD):
 	mkdir -p "$(@D)"
-	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
-	@curl --fail --location --silent --show-error "$(RUNTIME_URL)" --output "$@.tmp" || { \
+	@printf 'Downloading release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error \
+	  "$(RELEASE_URL)/$(notdir $@)" --output "$@.tmp" || { \
 	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
 	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
 	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
 	}
 	mv "$@.tmp" "$@"
 
-$(RUNTIME_CHECKSUM):
+$(PYTHON_API_CHECKSUM) $(CONVERTER_CHECKSUM):
 	mkdir -p "$(@D)"
-	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
-	@curl --fail --location --silent --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp" || { \
+	@printf 'Downloading release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error \
+	  "$(RELEASE_URL)/$(notdir $@)" --output "$@.tmp" || { \
 	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
 	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
 	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
 	}
 	mv "$@.tmp" "$@"
-
-$(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
-	@test ! -e "$(RUNTIME_DIST)" || { \
-	  printf 'runtime distribution is incomplete: %s\n' "$(RUNTIME_DIST)" >&2; exit 2; \
-	}
-	@cd "$(dir $(RUNTIME_DOWNLOAD))" && sha256sum --check "$(notdir $(RUNTIME_CHECKSUM))"
-	@mkdir -p "$(dir $(RUNTIME_DIST))"
-	@staging="$$(mktemp -d --tmpdir="$(dir $(RUNTIME_DIST))" .runtime.XXXXXX)"; \
-	  trap 'rm -rf -- "$$staging"' EXIT; \
-	  tar --extract --gzip --file "$(RUNTIME_DOWNLOAD)" --directory "$$staging"; \
-	  test -f "$$staging/lib/libarm-yolo26n.so.0"; \
-	  mv "$$staging" "$(RUNTIME_DIST)"
-endif
 
 # One converter invocation publishes these two model artifacts together.
 $(MODEL)/manifest.json $(MODEL)/model.bin &: $(CHECKPOINT)
@@ -311,7 +296,7 @@ $(DEFAULT_VIDEO):
 
 example-video: examples $(VIDEO)
 	"$(EXAMPLES_PYTHON)" -m examples.video.detect \
-	  --runtime "$(RUNTIME)" --model "$(MODEL)" --video "$(VIDEO)" \
+	  --model "$(MODEL)" --video "$(VIDEO)" \
 	  --output "$(VIDEO_OUTPUT)" --frames 200
 	"$(EXAMPLES_PYTHON)" -m examples.video.render \
 	  --video "$(VIDEO)" --detections "$(VIDEO_OUTPUT)" --output "$(VIDEO_RENDERED)"
@@ -355,10 +340,10 @@ lint: _dev
 	  \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.inc' \) \
 	  -exec "$(CLANG_FORMAT)" --dry-run --Werror {} +
 	@# Ruff's formatter verifies the Python source formatting.
-	"$(PYTHON)" -m ruff format --check src/converter src/runtime/api/python/arm_yolo26n \
+	"$(PYTHON)" -m ruff format --check src/converter src/runtime/api/python \
 	  benchmarks examples tests
 	@# Ruff's linter detects Python correctness, style, and import problems.
-	"$(PYTHON)" -m ruff check src/converter src/runtime/api/python/arm_yolo26n \
+	"$(PYTHON)" -m ruff check src/converter src/runtime/api/python \
 	  benchmarks examples tests
 	@# Import Linter enforces the converter's declared dependency direction.
 	PYTHONPATH="$(ROOT)/src" "$(PYTHON)" -c \

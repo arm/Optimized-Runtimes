@@ -23,16 +23,15 @@ sudo apt install -y \
 make examples
 ```
 
-`make examples` obtains the released native runtime and converts the official
-checkpoint locally without a native build. Picamera2 comes from Raspberry Pi OS
-so its bindings match libcamera. Confirm camera access with
+`make examples` installs the released application and converter wheels and
+converts the official checkpoint locally without a native build. Picamera2
+comes from Raspberry Pi OS so its bindings match libcamera. Confirm camera access with
 `rpicam-hello --list-cameras`.
 
 ## Headless detection
 
 ```bash
 examples/.venv/bin/python -m examples.picamera2.detect \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
   --model "$PWD/dist/models/yolo26n-640" \
   --camera 0 \
   --frames 100 \
@@ -47,7 +46,6 @@ On a Raspberry Pi desktop, use QtGL:
 
 ```bash
 examples/.venv/bin/python -m examples.picamera2.live \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
   --model "$PWD/dist/models/yolo26n-640" \
   --preview qtgl
 ```
@@ -57,10 +55,12 @@ For an SSH process, forward the active desktop environment if needed:
 ```bash
 DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR="/run/user/$(id -u)" \
   examples/.venv/bin/python -m examples.picamera2.live \
-  --runtime "$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
   --model "$PWD/dist/models/yolo26n-640" \
   --preview qtgl
 ```
+
+Runtime developers may add `--runtime /path/to/libarm-yolo26n.so.0` to test a
+source build instead of the installed wheel's library.
 
 Use `--preview auto` to let Picamera2 choose, or stop the graphical desktop and
 use `--preview drm` for direct console display. Preview dimensions are UI

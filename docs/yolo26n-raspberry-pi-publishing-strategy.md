@@ -19,7 +19,9 @@ The initial GitHub publication should contain:
 
 - source and pinned dependencies needed to reproduce the converter and one
   model-independent `libarm-yolo26n.so.0`;
-- a model-independent runtime archive with its checksum and required notices;
+- a platform-specific application wheel containing the model-independent
+  runtime and required notices, with its checksum;
+- a portable checkpoint-converter wheel with its checksum;
 - the direct Python tensor and detector APIs;
 - a prerecorded-video example for measuring model throughput on a repeatable
   user-supplied workload;

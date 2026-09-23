@@ -15,7 +15,7 @@ from picamera2 import MappedArray, Picamera2
 
 @dataclass(frozen=True, slots=True)
 class _Arguments:
-    runtime: Path
+    runtime: Path | None
     model: Path
     camera: int
     framerate: float
@@ -53,7 +53,11 @@ class _Metrics:
 
 def _parse_args() -> _Arguments:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--runtime", type=Path, required=True)
+    parser.add_argument(
+        "--runtime",
+        type=Path,
+        help="override the runtime bundled with the installed arm-yolo26n package",
+    )
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument(
@@ -150,7 +154,7 @@ def _run_pipeline(
 
 def main() -> int:
     args = _parse_args()
-    with Yolo26Detector(runtime=args.runtime, model=args.model) as detector:
+    with Yolo26Detector(model=args.model, runtime=args.runtime) as detector:
         camera = Picamera2(args.camera)
         try:
             _configure_camera(camera, detector.input_shape[2], args.framerate)
