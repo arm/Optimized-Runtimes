@@ -4,6 +4,7 @@ SHELL := /bin/bash
 # Shared commands and repository paths
 ROOT := $(CURDIR)
 PYTHON ?= python3
+PACKAGE_PYTHON ?= $(PYTHON)
 CLANG_FORMAT ?= clang-format
 LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
@@ -24,6 +25,13 @@ RUNTIME_DIST ?= $(ROOT)/dist/runtime
 DEFAULT_RUNTIME := $(RUNTIME_DIST)/lib/libarm-yolo26n.so.0
 RUNTIME ?= $(DEFAULT_RUNTIME)
 PACKAGE_DIST ?= $(ROOT)/dist/packages
+RUNTIME_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
+RUNTIME_DEVELOPMENT_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-rpi5-$(VERSION)-development.tar.gz
+PYTHON_API_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n-$(VERSION)-py3-none-any.whl
+CONVERTER_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n_converter-$(VERSION)-py3-none-any.whl
+RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.gz
+RELEASE_DEVELOPMENT_PACKAGE := \
+	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
 RUNTIME_RELEASE ?= v$(VERSION)
 RUNTIME_ARCHIVE := arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
 RUNTIME_URL ?= https://github.com/Arm-Debug/yolo-raspi-research/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
@@ -76,8 +84,8 @@ help:
 	  '  make runtime' \
 	  '      Configure, compile, test, and write the native runtime to dist/runtime/.' \
 	  '' \
-	  '  make runtime-package' \
-	  '      Produce CPack runtime and development archives under dist/packages/.' \
+	  '  make release' \
+	  '      Build the native, converter, and Python API release packages.' \
 	  '' \
 	  '  make requirements-lock' \
 	  '      Regenerate the hash-locked Python dependency closures.' \
@@ -146,7 +154,7 @@ model-check: $(CHECKPOINT)
 	  --output "$(MODEL_VALIDATION)"
 
 # Native runtime
-.PHONY: runtime runtime-package
+.PHONY: runtime
 runtime:
 	cmake -S src/runtime -B "$(RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Release
@@ -155,9 +163,55 @@ runtime:
 	ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure
 	cmake --install "$(RUNTIME_BUILD)" --prefix "$(RUNTIME_DIST)" --component runtime
 
-runtime-package: runtime
+# Release packaging
+.PHONY: release
+release: _release-assemble
+
+.PHONY: _release-runtime
+_release-runtime: runtime
 	mkdir -p "$(PACKAGE_DIST)"
 	cpack --config "$(RUNTIME_BUILD)/CPackConfig.cmake" -B "$(PACKAGE_DIST)"
+
+.PHONY: _release-converter
+_release-converter:
+	mkdir -p "$(PACKAGE_DIST)"
+	@staging="$$(mktemp -d)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  cp src/converter/*.py src/converter/pyproject.toml \
+	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
+	  PIP_CONFIG_FILE=/dev/null "$(PACKAGE_PYTHON)" -m pip wheel \
+	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
+
+.PHONY: _release-python
+_release-python:
+	mkdir -p "$(PACKAGE_DIST)"
+	PIP_CONFIG_FILE=/dev/null "$(PACKAGE_PYTHON)" -m pip wheel \
+	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
+
+.PHONY: _release-assemble
+_release-assemble: _release-runtime _release-converter _release-python
+	@cd "$(PACKAGE_DIST)" && sha256sum --check "$(notdir $(RUNTIME_PACKAGE)).sha256"
+	@cd "$(PACKAGE_DIST)" && sha256sum --check \
+	  "$(notdir $(RUNTIME_DEVELOPMENT_PACKAGE)).sha256"
+	@staging="$$(mktemp -d --tmpdir="$(PACKAGE_DIST)" .release.XXXXXX)"; \
+	  trap 'rm -rf -- "$$staging"' EXIT; \
+	  tar --extract --gzip --file "$(RUNTIME_PACKAGE)" --directory "$$staging"; \
+	  install --directory "$$staging/python"; \
+	  install --mode 0644 "$(PYTHON_API_PACKAGE)" "$(CONVERTER_PACKAGE)" \
+	    "$$staging/python/"; \
+	  tar --create --gzip --file "$$staging/$(notdir $(RELEASE_PACKAGE))" \
+	    --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+	    --directory "$$staging" lib python share; \
+	  cp "$(RUNTIME_DEVELOPMENT_PACKAGE)" \
+	    "$$staging/$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))"; \
+	  cd "$$staging"; \
+	  sha256sum "$(notdir $(RELEASE_PACKAGE))" \
+	    > "$(notdir $(RELEASE_PACKAGE)).sha256"; \
+	  sha256sum "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    > "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256"; \
+	  mv "$(notdir $(RELEASE_PACKAGE))" "$(notdir $(RELEASE_PACKAGE)).sha256" \
+	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE))" \
+	    "$(notdir $(RELEASE_DEVELOPMENT_PACKAGE)).sha256" "$(PACKAGE_DIST)/"
 
 # Examples
 .PHONY: examples example-video

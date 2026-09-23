@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arm-yolo26n-converter"
+dynamic = ["version"]
+description = "Convert supported YOLO26n checkpoints for the Arm Raspberry Pi 5 runtime"
+requires-python = ">=3.13,<3.14"
+license = "Apache-2.0"
+
+[tool.setuptools]
+packages = ["converter"]
+package-dir = {converter = "."}
+
+[tool.setuptools.dynamic]
+# VERSION links to the repository's canonical release version.
+version = {file = ["VERSION"]}

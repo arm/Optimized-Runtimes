@@ -100,6 +100,7 @@ class _Evidence:
                 f"lib/libarm-yolo26n.so.{self.version}",
                 "lib/libarm-yolo26n.so.0",
                 f"python/arm_yolo26n-{self.version}-py3-none-any.whl",
+                f"python/arm_yolo26n_converter-{self.version}-py3-none-any.whl",
                 "share/doc/arm-yolo26n/LICENSE",
                 "share/doc/arm-yolo26n/licenses/xnnpack/LICENSE",
             },

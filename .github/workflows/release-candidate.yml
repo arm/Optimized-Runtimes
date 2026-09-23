@@ -144,7 +144,8 @@ jobs:
           test -r "\$runtime"
           python3 -m venv .venv
           .venv/bin/python -m pip install \
-            "\$candidate/python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl"
+            "\$candidate/python/arm_yolo26n-$RELEASE_VERSION-py3-none-any.whl" \
+            "\$candidate/python/arm_yolo26n_converter-$RELEASE_VERSION-py3-none-any.whl"
           ~~~
 
           The native library is staged rather than installed system-wide. Pass

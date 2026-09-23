@@ -20,9 +20,10 @@ arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz
 ```
 
 This is the prebuilt distribution for running YOLO26n. It contains the native
-runtime installation and the Python wheel. The release notes link to it as
-**Download for Raspberry Pi 5** and give the extraction and Python installation
-commands. A Python application needs no other release asset.
+runtime installation, checkpoint converter wheel, and application API wheel.
+The release notes link to it as **Download for Raspberry Pi 5** and give the
+extraction and Python installation commands. A Python application needs no
+other release asset.
 
 Repository examples obtain this distribution automatically. The public
 implementation must derive a version-specific release URL from the checkout
@@ -31,7 +32,7 @@ own runtime.
 
 | File | Owner | Contents |
 | --- | --- | --- |
-| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | Main build assembly from CMake and Python outputs | Ready-to-run native installation, Python wheel, project license, and third-party licenses |
+| `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` and checksum | `make release` | Ready-to-run native installation, converter and application API wheels, project license, and third-party licenses |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` and checksum | CMake and CPack | Optional C header and unversioned linker name for C or C++ development |
 | `arm-yolo26n-<version>-rpi5-qualification.tar.gz` and checksum | Raspberry Pi qualification | Review evidence: test report, candidate identities, accuracy and performance logs, and recorded host context |
 
@@ -63,9 +64,9 @@ does not repeat an unchanged scan.
 
 A separate, manually triggered GitHub Actions workflow operates on the current
 `main` commit and reads its version from `VERSION`. The ordinary `main` build
-remains the only build: it has already run the tests, built the Python wheel,
-had CMake and CPack produce the runtime and development components, and
-assembled the final distribution. Candidate construction:
+remains the only build: it has already run the tests, built the converter and
+application API wheels, had CMake and CPack produce the runtime and development
+components, and assembled the final distribution. Candidate construction:
 
 1. verifies the current `main` commit and its version;
 2. requires a successful build and successful Black Duck run for that exact
@@ -78,12 +79,13 @@ assembled the final distribution. Candidate construction:
    distribution files; and
 6. creates one draft GitHub release targeting that commit.
 
-The build's release-assembly step does not introduce another native or Python
-packager. It combines the files produced by those owners into the single
-platform distribution users need. The candidate workflow only verifies and
-annotates those retained bytes. It uses the `release-candidate` GitHub
-environment so repository administrators can add required reviewers before
-granting permission to create a draft release.
+The top-level `make release` command delegates native packaging to CMake and
+CPack, builds the converter and application API wheels, and combines those
+outputs into the single platform distribution users need. The build workflow
+only invokes that repository command and retains its final outputs. The
+candidate workflow only verifies and annotates those retained bytes. It uses
+the `release-candidate` GitHub environment so repository administrators can add
+required reviewers before granting permission to create a draft release.
 
 To construct a candidate, open **Actions → Release candidate → Run workflow**,
 select `main`, and confirm Black Duck review only after inspecting that
@@ -123,7 +125,7 @@ the native runtime from the repository checkout.
 
 The qualification procedure exercises:
 
-- installation of the candidate runtime and Python wheel;
+- installation of the candidate runtime, converter, and application API;
 - checkpoint conversion and native execution at every supported resolution;
 - the prerecorded-video example;
 - the reviewed Ultralytics accuracy and performance workload; and

@@ -51,8 +51,7 @@ the architecture:
 | Native configuration and dependencies | CMake | `src/runtime` and pinned dependency revisions | CMake build tree |
 | Native compilation and verification | CMake and CTest | Configured native build tree | Runtime shared library and test results |
 | Native installation | CMake install rules | Built runtime | Prefix using the platform installation layout |
-| Native release archive | CPack | CMake install components | Publishable archive under `dist/` |
-| Python installation | Python packaging metadata | `arm_yolo26n` source | Installed application API |
+| Release packages | Top-level Makefile, CPack, and Python packaging metadata | Native installation, converter, and application API | Publishable archives under `dist/packages/` |
 | Example preparation | `examples` workflow | Python package, checkpoint, media, and runtime source | Reusable example inputs and converted model |
 | Example execution | Individual example | Runtime, converted model, and input media or camera | Results beside that example under `output/` |
 | Ultralytics preparation | `benchmarks/ultralytics` | Pinned benchmark requirements and repository patch | Patched environment under `benchmarks/ultralytics/.venv` |
@@ -216,7 +215,7 @@ to repeat `yolo26n` everywhere.
 | `make model [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then convert it into `dist/models/`; no native build |
 | `make model-check [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then validate conversion behavior and write a receipt |
 | `make runtime` | Configure, compile, run CTest, and install into `dist/runtime/` |
-| `make runtime-package` | Produce the CPack runtime archive and checksum in `dist/packages/` |
+| `make release` | Produce the native, converter, and Python API release packages in `dist/packages/` |
 | `make examples` | Prepare the example environment, verified inputs, runtime selection, and converted model; do not run an example |
 | `make example-video` | Run the prerecorded-video example using prepared or explicit inputs |
 | `make ultralytics-patch` | Prepare the pinned Ultralytics environment and apply the repository patch; do not run validation |

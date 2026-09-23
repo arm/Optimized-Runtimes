@@ -31,6 +31,7 @@ def _final_packages(directory: Path) -> None:
             f"lib/libarm-yolo26n.so.{version}": b"runtime",
             "lib/libarm-yolo26n.so.0": b"runtime",
             f"python/arm_yolo26n-{version}-py3-none-any.whl": b"wheel",
+            f"python/arm_yolo26n_converter-{version}-py3-none-any.whl": b"converter",
             "share/doc/arm-yolo26n/LICENSE": b"project license",
             "share/doc/arm-yolo26n/licenses/xnnpack/LICENSE": b"dependency license",
         },
@@ -80,6 +81,7 @@ def test_build_packages_are_promoted_without_repackaging(tmp_path: Path) -> None
         names = set(archive.getnames())
     assert "lib/libarm-yolo26n.so.0" in names
     assert "python/arm_yolo26n-0.1.0-py3-none-any.whl" in names
+    assert "python/arm_yolo26n_converter-0.1.0-py3-none-any.whl" in names
     assert "share/doc/arm-yolo26n/licenses/xnnpack/LICENSE" in names
 
     assert package_identities == {
