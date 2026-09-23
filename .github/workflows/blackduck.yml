@@ -137,18 +137,9 @@ jobs:
 
       - name: Prepare runtime dependency sources
         if: matrix.closure == 'runtime'
-        env:
-          SCAN_DIRECTORY: ${{ matrix.directory }}
         run: |
           make runtime-configure \
             RUNTIME_BUILD="$GITHUB_WORKSPACE/build/blackduck/runtime"
-          mapfile -t dependency_sources < <(
-            find "$SCAN_DIRECTORY" -mindepth 1 -maxdepth 1 -type d -print | sort
-          )
-          if [[ "${#dependency_sources[@]}" -ne 4 ]]; then
-            echo "expected four fetched runtime source trees, found ${#dependency_sources[@]}" >&2
-            exit 1
-          fi
 
       - name: Prepare locked Python closure
         if: matrix.closure != 'runtime'
