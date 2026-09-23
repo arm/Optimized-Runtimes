@@ -164,6 +164,9 @@ class VideoDetectionBehaviorTests(unittest.TestCase):
                 2,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("Detection performance:", completed.stdout)
+            self.assertIn(" FPS", completed.stdout)
+            self.assertIn(" ms/frame", completed.stdout)
             document = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(document["version"], 1)
             self.assertEqual(document["coordinate_space"], "inference_frame_pixels_xyxy")

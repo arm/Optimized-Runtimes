@@ -15,9 +15,10 @@ to remain useful to arbitrary XNNPACK or pthreadpool consumers.
 | [`xnnpack-operator-pruning.patch`](xnnpack-operator-pruning.patch) | Removes operator dispatch and microparameter implementations that the Pi 5 runtime cannot reach. It contains no new behavior. |
 | [`xnnpack-yolo26-operator-extensions.patch`](xnnpack-yolo26-operator-extensions.patch) | Implements the tagged concatenate, registers standalone SiLU, and connects tagged convolution operators to the fused GEMM or indirect-GEMM paths. It selects implementations but does not contain arithmetic kernels. |
 | [`xnnpack-yolo26-kernels.patch`](xnnpack-yolo26-kernels.patch) | Adds the Arm64 FP16 convolution-plus-SiLU assembly and standalone FP16/FP32 SiLU kernels. |
+| [`xnnpack-rpi5-bti-diagnostic.patch`](xnnpack-rpi5-bti-diagnostic.patch) | Downgrades XNNPACK's GCC BTI warning because the fixed Raspberry Pi 5 Cortex-A76 target cannot enforce BTI. It does not change compilation. |
 | [`pthreadpool-spin-wait.patch`](pthreadpool-spin-wait.patch) | Extends the worker spin-wait period used by the fixed four-thread runtime. This reduces wake-up latency between short operators. |
 
-The five XNNPACK patches apply in the table's order, the exact application commands and dependency revisions live in [`../CMakeLists.txt`](../CMakeLists.txt).
+The six XNNPACK patches apply in the table's order, the exact application commands and dependency revisions live in [`../CMakeLists.txt`](../CMakeLists.txt).
 
 ## Specialized concatenate
 

@@ -80,6 +80,7 @@ dist/
   models/<model>-<resolution>/     Locally converted model and manifest
   packages/                        Component and final distribution packages
 
+.venv/                             Hash-locked repository check environment
 examples/.venv/                    Example application environment
 examples/video/output/             Video detections, rendered video, and logs
 examples/picamera2/output/         Captured images and detection results
@@ -108,10 +109,10 @@ The meanings are strict:
   A user running the video example finds its output under
   `examples/video/output/`, not in an unrelated build directory.
 
-These generated and downloaded locations are ignored by Git. A future
-cleanup command must name the location it removes; there should be no single
-destructive command that erases build products, downloads, environments, and
-results together.
+These generated and downloaded locations are ignored by Git. `make clean`
+names and removes `build/` and `dist/`, while preserving downloads,
+environments, and user-visible results. There is no single destructive command
+that erases every generated location.
 
 ### Why anything remains under build
 
@@ -214,11 +215,11 @@ to repeat `yolo26n` everywhere.
 | `make model-check [CHECKPOINT=...] RESOLUTION=...` | Download the pinned official checkpoint when omitted, then validate conversion behavior and write a receipt |
 | `make runtime` | Configure, compile, run CTest, and install into `dist/runtime/` |
 | `make release` | Produce the native, converter, and Python API release packages in `dist/packages/` |
+| `make clean` | Remove reproducible artifacts under `build/` and `dist/` while preserving downloads, environments, and results |
 | `make examples` | Prepare the example environment, verified inputs, runtime selection, and converted model; do not run an example |
-| `make example-video` | Run the prerecorded-video example using prepared or explicit inputs |
-| `make ultralytics-patch` | Prepare the pinned Ultralytics environment and apply the repository patch; do not run validation |
-| `make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...` | Run Ultralytics validation and record evidence using the selected runtime, converted model, and dataset |
-| `make lint` | Run formatting, static analysis, type checking, import-boundary checks, and shell syntax checks |
+| `make example-video` | Run prerecorded-video inference and write its detection document and rendered video |
+| `make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...` | Prepare the pinned Ultralytics environment when needed, then run validation and record evidence |
+| `make lint` | Prepare the hash-locked development environment when needed, then run formatting, static analysis, type checking, import-boundary checks, and shell syntax checks |
 | `make test-unit` | Run unit and public command-interface tests without the native runtime |
 | `make test-converter CHECKPOINT=...` | Run checkpoint-backed converter behavior tests across the supported resolutions and rejection cases |
 | `make test-end-to-end CHECKPOINT=... RUNTIME=... MODELS=...` | Run converter behavior, then the complete runtime and example behavior suite with the supported converted models on Linux AArch64 |
@@ -245,17 +246,19 @@ dependencies. The default checkpoint, runtime, and video rules use `curl`,
 `sha256sum`, and `tar`; model outputs are produced by the converter command.
 Caller-provided artifact paths are reused and have no automatic download rule.
 
-It does not download the test video, run video inference, open a camera, or
-render output. `make example-video` obtains the verified video if it is absent,
-then writes its results under `examples/video/output/`. Picamera2 users
-therefore never download media they do not need. Camera actions remain explicit
-because they have different resource and display requirements.
+It does not download the test video, run video inference, or open a camera.
+`make example-video` obtains the verified video if it is absent, records
+detections, and renders an annotated MP4 under `examples/video/output/`.
+Picamera2 users therefore never download media they do not need. Camera actions
+remain explicit because they have different resource and display requirements.
 
 ## Ultralytics workflow
 
-`make ultralytics-patch` creates `benchmarks/ultralytics/.venv`, installs the
-pinned Ultralytics requirements, and applies the repository's integration
-patch. It does not copy or package a runtime or converted model.
+The hidden preparation prerequisite of `make ultralytics-benchmark` creates
+`benchmarks/ultralytics/.venv`, installs the pinned Ultralytics requirements,
+and applies the repository's integration patch. Its stamp prevents repeated
+installation until an environment input changes. It does not copy or package
+a runtime or converted model.
 
 Ultralytics accepts one `model` argument, while this runtime requires a native
 library and a converted model directory. `make ultralytics-benchmark` therefore

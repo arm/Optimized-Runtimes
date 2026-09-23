@@ -34,6 +34,8 @@ performance claims; those checks belong in hardware validation.
 
 ## Running the suites
 
+`make lint` and the test targets prepare the hash-locked development
+environment under `.venv/` when it is missing or outdated.
 `make lint` runs formatting, static analysis, typing, import-boundary, and
 syntax checks. Pytest discovers the portable, checkpoint-backed, and
 end-to-end suites from `tests/unit`, `tests/converter`, and `tests/end_to_end`
@@ -49,8 +51,10 @@ real native library and converted models on Linux AArch64 and runs inference
 through the public NumPy runtime, detector, video, and camera-example
 interfaces. `CHECKPOINT` supplies the converter fixture, `MODELS` must be a
 colon-separated list containing exactly one converted model for each supported
-resolution, and `RUNTIME` names the installed native library. Only the physical
-camera boundary is replaced.
+resolution, and `RUNTIME` names the installed native library. The default
+`MODELS` paths are prepared automatically; explicitly selected external paths
+remain caller-provided artifacts. Only the physical camera boundary is
+replaced.
 
 Hardware validation runs separately on Raspberry Pi 5. It covers camera
 operation, performance, thermals, throttling, and other properties of the
