@@ -32,8 +32,9 @@ RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.
 RELEASE_DEVELOPMENT_PACKAGE := \
 	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
 RUNTIME_RELEASE ?= v$(VERSION)
-RUNTIME_ARCHIVE := arm-yolo26n-rpi5-$(VERSION)-runtime.tar.gz
-RUNTIME_URL ?= https://github.com/Arm-Debug/yolo-raspi-research/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
+RUNTIME_ARCHIVE := $(notdir $(RELEASE_PACKAGE))
+RUNTIME_REPOSITORY := arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+RUNTIME_URL ?= https://github.com/$(RUNTIME_REPOSITORY)/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
 
@@ -257,14 +258,26 @@ $(DEFAULT_CHECKPOINT):
 # A source build and a release download establish the same runtime path. Attach
 # the download rules only when no usable source-built distribution is present.
 ifneq ($(shell test -f "$(DEFAULT_RUNTIME)" && printf present),present)
+# Public releases use curl without requiring GitHub tooling. The authenticated
+# gh fallback keeps maintainer testing usable while the repository is internal.
 $(RUNTIME_DOWNLOAD):
 	mkdir -p "$(@D)"
-	curl --fail --location --show-error "$(RUNTIME_URL)" --output "$@.tmp"
+	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL)" --output "$@.tmp" || { \
+	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
+	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
+	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
+	}
 	mv "$@.tmp" "$@"
 
 $(RUNTIME_CHECKSUM):
 	mkdir -p "$(@D)"
-	curl --fail --location --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp"
+	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp" || { \
+	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
+	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
+	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
+	}
 	mv "$@.tmp" "$@"
 
 $(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
@@ -272,6 +285,7 @@ $(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
 	  printf 'runtime distribution is incomplete: %s\n' "$(RUNTIME_DIST)" >&2; exit 2; \
 	}
 	@cd "$(dir $(RUNTIME_DOWNLOAD))" && sha256sum --check "$(notdir $(RUNTIME_CHECKSUM))"
+	@mkdir -p "$(dir $(RUNTIME_DIST))"
 	@staging="$$(mktemp -d --tmpdir="$(dir $(RUNTIME_DIST))" .runtime.XXXXXX)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
 	  tar --extract --gzip --file "$(RUNTIME_DOWNLOAD)" --directory "$$staging"; \
