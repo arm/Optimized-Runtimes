@@ -13,7 +13,6 @@ The release publishes:
 | --- | --- |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64.tar.gz` | Runtime library, application API wheel, converter wheel, project license, and dependency licenses |
 | `arm-yolo26n-<version>-rpi5-trixie-arm64-dev.tar.gz` | C header and unversioned linker name for C and C++ development |
-| `arm-yolo26n-<version>-rpi5-qualification.tar.gz` | Qualification report, candidate identities, logs, and benchmark host context |
 | A `.sha256` file beside each archive | Published archive identity |
 
 GitHub supplies source archives for the release tag. The project does not
@@ -383,7 +382,7 @@ PYTHONPATH="$qualification/source" \
 Use `--preview drm` instead only when qualifying a direct DRM console rather
 than the desktop QtGL path.
 
-## 11. Write and package the evidence
+## 11. Record the evidence
 
 Write `evidence/qualification-report.md` as a normal test report. It must
 identify:
@@ -399,17 +398,8 @@ identify:
   filesystem cache, pressure, faults, and swap; and
 - any failed attempts or process corrections needed to interpret the session.
 
-Package only the report and retained evidence, not the checkpoint, dataset,
-converted models, environments, or candidate archives:
-
-```bash
-qualification_archive="$qualification/arm-yolo26n-$version-qualification.tar.gz"
-tar --create --gzip --file "$qualification_archive" \
-  --directory "$qualification" evidence logs
-sha256sum "$qualification_archive" > "$qualification_archive.sha256"
-```
-
-Review the archive contents and checksum before attaching them.
+Retain the report and supporting evidence with the project's internal release
+records. The qualification report is not a release asset.
 
 ## 12. Freeze the Black Duck release BOMs
 
@@ -426,21 +416,15 @@ subproject relationships, Notices settings, licenses, and policy results. The
 clones preserve the reviewed release BOM; do not rescan or reconstruct it with
 a repository-specific reconciliation tool.
 
-## 13. Attach and publish
-
-Upload the qualification archive and checksum to the existing draft:
-
-```bash
-gh release upload "$release" --repo "$repository" \
-  "$qualification_archive" "$qualification_archive.sha256"
-```
+## 13. Publish
 
 Before publication, verify:
 
 1. the draft targets the qualified source revision;
 2. its original runtime and development assets still match the qualification
    report;
-3. the qualification archive is attached and matches its checksum;
+3. the qualification report and supporting evidence have been retained in the
+   project's internal release records;
 4. the four cloned Black Duck versions have been reviewed;
 5. accuracy, performance, functional, and camera results are accepted; and
 6. the release notes identify the supported Pi environment and state that
@@ -448,7 +432,7 @@ Before publication, verify:
 
 Publish the existing draft without rebuilding, replacing, or re-uploading its
 candidate assets. GitHub creates the release tag and source archives at this
-point. After publication, verify the tag target, all six attached files, their
+point. After publication, verify the tag target, all four attached files, their
 checksums, and the user-facing installation commands.
 
 If any candidate digest changes, qualification is invalid. If any required
