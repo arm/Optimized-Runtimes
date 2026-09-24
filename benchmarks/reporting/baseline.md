@@ -15,7 +15,7 @@ performance workload.
 
 | Item | Value |
 | --- | --- |
-| Source revision | `00cbd4412db2af127d6d84cef8f82ad10ede22de` |
+| Source revision | `7ee806b34ca7cf06e1c90b0a99160a5ad4b14350` |
 | Runtime library SHA-256 | `6b9978243ed1fd325e5b7b6a2bc616280862ed01edc1f653ee55b088658b60b2` |
 | Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
 | Dataset | `coco-128-by-sa` |
@@ -27,8 +27,9 @@ performance workload.
 | License manifest SHA-256 | `695761f930ec77c416b8b8453f549fe38016fda158dc5e50af59c8b5c0bd0c8e` |
 | Ultralytics | 8.4.108 |
 | Ultralytics options | `workers=0 plots=False` |
-| Evidence directory | `20260924T073434514455149Z-00cbd4412db2` |
-| Recorded | 2026-09-24 07:34 UTC |
+| Cache state | Cold; host filesystem caches dropped immediately before the run |
+| Evidence directory | `20260924T074313100023210Z-7ee806b34ca7` |
+| Recorded | 2026-09-24 07:43 UTC |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
@@ -44,8 +45,8 @@ writing validation plots; it does not change detector scoring.
 | mAP50 | 0.633 |
 | mAP50-95 | 0.468 |
 | Preprocess | 2.1 ms/image |
-| Inference | 37.7 ms/image |
-| Postprocess | 3.3 ms/image |
+| Inference | 36.4 ms/image |
+| Postprocess | 4.1 ms/image |
 
 ## Host context
 
@@ -53,27 +54,20 @@ The measurement ran on a Raspberry Pi 5 Model B Rev 1.1 with Linux
 6.12.75+rpt-rpi-2712. All four cores were available, and the CPU frequency
 policy remained on the `performance` governor at 2.4 GHz.
 
-The CPU temperature increased from 47.95 °C to 54.55 °C. The firmware reported
+The host filesystem caches were dropped immediately before starting the
+benchmark. At the benchmark's initial observation, cached and reclaimable data
+totaled 0.40 GB; it increased to 0.70 GB during the run. The resulting cold
+reads caused 1,079 major page faults, while swap input and output did not
+change.
+
+The CPU temperature increased from 47.4 °C to 52.9 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
-memory decreased from 7.66 GB to 7.57 GB, while filesystem cache remained about
-3.52 GB. Swap was configured and already occupied, but the run caused no swap
-input/output or major page faults. Peak benchmark-process-tree RSS was 474 MB.
+memory decreased from 7.70 GB to 7.61 GB, and peak benchmark-process-tree RSS
+was 465 MB.
 
-## Legacy Ultralytics COCO128 result
+## Warm-cache repeatability check
 
-The previous baseline used Ultralytics `coco128.yaml`, not
-`coco-128-by-sa`. It contained 128 images and 929 instances, while the
-accepted dataset contains 1,113 instances and only 31 image filenames overlap.
-The results are retained for historical context but are not the reference for
-new performance comparisons.
-
-| Item | Legacy value |
-| --- | --- |
-| Source revision | `d41c7dc6dee5e605380d4bb8dae2b5882f94b69e` |
-| Runtime library SHA-256 | `b8bb69c0f3b84fc6a0204c2821dec41f5e6aeb78a1ffb3e8c9e5fd8b827c46c5` |
-| Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
-| Dataset | Ultralytics `coco128.yaml` (128 images, 929 instances) |
-| Precision / recall | 0.738 / 0.538 |
-| mAP50 / mAP50-95 | 0.645 / 0.479 |
-| Preprocess / inference / postprocess | 2.3 / 38.4 / 2.6 ms/image |
-| Recorded | 2026-09-22 00:25 UTC |
+An immediate repeat with the same `coco-128-by-sa` dataset, model, runtime,
+CPU affinity, and Ultralytics options measured 38.3 ms/image inference. Its
+initial cached and reclaimable data totaled 0.70 GB. The evidence directory is
+`20260924T074341827321411Z-7ee806b34ca7`.
