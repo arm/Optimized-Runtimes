@@ -43,7 +43,7 @@ writing validation plots; it does not change detector scoring.
 | Precision | 0.752 |
 | Recall | 0.544 |
 | mAP50 | 0.633 |
-| mAP50-95 | 0.468 |
+| mAP50-95 | 0.4678 |
 | Preprocess | 2.1 ms/image |
 | Inference | 36.4 ms/image |
 | Postprocess | 4.1 ms/image |
