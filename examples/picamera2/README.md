@@ -1,68 +1,76 @@
-# Picamera2 examples
+# Picamera2 example
 
-These programs connect a Raspberry Pi camera to the YOLO26n runtime.
-`detect.py` is the bounded headless diagnostic. `live.py` adds a
-hardware-accelerated DRM/KMS or QtGL preview with detections, rolling detector
-throughput, and mean inference latency.
+This example performs object detection on live video from a connected Raspberry
+Pi Camera. Its reported pipeline FPS includes camera capture and detection. Both
+headless and preview modes request a 30 FPS camera stream by default.
 
-The application owns camera configuration, capture scheduling, and display.
-`Yolo26Detector` owns model-specific preprocessing, native execution,
-postprocessing, and class metadata. Both programs read the static square input
-size from the converted model and request a 4:3 camera frame that needs only
-padding, so a 480 model requests 480x360 and a 640 model requests 640x480.
+The camera examples run until interrupted and do not record video. Pass
+`CAMERA_ARGS="--frames 100"` to stop after a fixed number of detections.
 
-## Raspberry Pi setup
+## Usage
 
-Install the camera bindings on 64-bit Raspberry Pi OS Trixie:
+### Prerequisites
+
+Install the required packages:
 
 ```bash
 sudo apt update
-sudo apt install -y \
-  python3-picamera2 python3-venv rpicam-apps
-
-make examples
+sudo apt install --yes --no-install-recommends \
+  ca-certificates \
+  curl \
+  git \
+  make \
+  python3 \
+  python3-venv \
+  python3-picamera2 \
+  rpicam-apps \
+  tar \
+  gzip
 ```
 
-`make examples` obtains the released native runtime and converts the official
-checkpoint locally without a native build. Picamera2 comes from Raspberry Pi OS
-so its bindings match libcamera. Confirm camera access with
-`rpicam-hello --list-cameras`.
-
-## Headless detection
+Confirm camera access:
 
 ```bash
-make example-camera CAMERA_ARGS="--frames 100 --print-detections"
+rpicam-hello --list-cameras
 ```
 
-Without `CAMERA_ARGS`, the example runs until interrupted. Select a different
-camera with `CAMERA=1`.
+To use your own compatible model, see [Acquiring a model](../../README.md#acquiring-a-model).
+Otherwise, the pinned standard YOLO26n checkpoint is downloaded and converted
+automatically.
 
-## Live preview
+### Live camera without a preview
 
-On a Raspberry Pi desktop, use QtGL:
+Run detection without rendering a preview:
+
+```bash
+make example-camera
+```
+
+This mode avoids display and overlay-rendering overhead. Select another camera
+with `CAMERA=1`, and pass additional application options through `CAMERA_ARGS`:
+
+```bash
+make example-camera CAMERA=1 CAMERA_ARGS="--frames 100 --print-detections"
+```
+
+### Live camera preview
+
+Run from a terminal in an active desktop session:
 
 ```bash
 make example-camera CAMERA_PREVIEW=qtgl
 ```
 
-For an SSH process, forward the active desktop environment if needed:
+Rendering the annotated preview adds performance overhead. Preview dimensions
+do not change the model's detector resolution.
+
+When connecting over SSH to an existing desktop session, the desktop user and
+SSH user must be the same:
 
 ```bash
 DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR="/run/user/$(id -u)" \
   make example-camera CAMERA_PREVIEW=qtgl
 ```
 
-Use `CAMERA_PREVIEW=auto` to let Picamera2 choose, or stop the graphical desktop
-and use `CAMERA_PREVIEW=drm` for direct console display. Preview dimensions are
-UI settings and do not change the model's detector resolution. Additional live
-options may be supplied through `CAMERA_ARGS`.
-
-The status panel reports detector throughput, not the independently running
-camera refresh rate:
-
-```text
-Detect <live> FPS  |  Inference <live> ms
-```
-
-Additional camera patterns are in the [official Picamera2 examples](https://github.com/raspberrypi/picamera2/tree/main/examples)
-and [Picamera2 manual](https://datasheets.raspberrypi.com/camera/picamera2-manual.pdf).
+Use `CAMERA_PREVIEW=auto` to let Picamera2 select a preview backend. Stop the
+graphical desktop and use `CAMERA_PREVIEW=drm` for direct console display.

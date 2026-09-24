@@ -119,7 +119,7 @@ help:
 	  '      Run Picamera2 detection; select CAMERA_PREVIEW for the live UI.' \
 	  '' \
 	  '  make ultralytics-benchmark RUNTIME=... MODEL=... DATA=...' \
-	  '      Prepare Ultralytics, then validate the selected runtime and model.' \
+	  '      Prepare a runtime, model, and Ultralytics, then run validation.' \
 	  '' \
 	  'Development checks:' \
 	  '      The hash-locked development environment is prepared automatically.' \
@@ -349,7 +349,8 @@ $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
 .PHONY: ultralytics-benchmark
-ultralytics-benchmark: $(ULTRALYTICS_VENV)/pyvenv.cfg
+ultralytics-benchmark: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
+    $(ULTRALYTICS_VENV)/pyvenv.cfg
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \

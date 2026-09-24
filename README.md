@@ -2,61 +2,137 @@
 
 This repository contains the source for the [Arm Runtime for YOLO26 on Raspberry Pi 5](arm.github.io/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5) **CHECK LINK BEFORE PUBLISHING**
 
-## Quick Start
-### Examples and Benchmarking
-* **TODO**: list the steps to get the ultralytics benchmark
-* **TODO**: List the steps to run the video benchmark
-* * **TODO**: List the steps to run the picamera2 example
-
-### Build from source
-On Raspberry Pi 5:
-```bash
-make yolo26n-export \
-  YOLO26N_RESOLUTION=640 \
-  YOLO26N_CHECKPOINT=/path/to/yolo26n.pt
-make yolo26n-build
-make yolo26n-bundle YOLO26N_RESOLUTION=640
-```
-> For resolution choose one of `320`, `480`, `640`, `800`, `960`, or `1280`
-
-The resulting verified static-resolution bundle is written to `dist/yolo26n-<resolution>/`
-
 ## About
-For general information see [Arm Runtime for YOLO26 on Raspberry Pi 5](arm.github.io/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5)
 
-## Layout
-The project consists of:
-- `compiler/` - A YOLO26n PyTorch checkpoint compiler, which validates and converts provided YOLO26n checkpoints into the format required by the runtime
-- [needs folder] An XNNPACK-backed native runtime which executes the fixed YOLO26n graph
-- [needs folder] Python tensor-level API
-- [needs folder] Python image-level API
-- `examples/video` - Python example which performs object detection on pre-recorded video
-- `examples/picamera2` - Python example which performs object detection on live video from a Pi Camera
-- `ultralytics/` - source and scripts to execute the Ultralytics benchmark
+This runtime runs YOLO26n on Raspberry Pi 5 with Raspberry Pi OS Trixie. It is
+a fixed-graph implementation that uses model-specific memory planning, custom
+operators, and operator fusion to maximize throughput on the Raspberry Pi CPU.
 
-## Run through Ultralytics (this should probably get moved to the ultralytics folder)
+The runtime supports the standard YOLO26n model and compatible fine-tuned
+variants at square resolutions of 320, 480, 640, 800, 960, and 1280 pixels.
 
-Assemble the built YOLO26n bundle into the Arm Raspberry Pi 5
-Ultralytics package:
+## Quick start
+
+### Prerequisites
+
+On Raspberry Pi OS Trixie, install the required packages:
 
 ```bash
-make ultralytics-package
+sudo apt update
+sudo apt install --yes --no-install-recommends \
+  ca-certificates \
+  curl \
+  git \
+  make \
+  python3 \
+  python3-venv \
+  tar \
+  gzip
 ```
 
-Install the pinned Python environment and repository-owned
-`ArmYolo26Pi5Backend`, then benchmark the package directly:
+Clone the repository:
 
 ```bash
-make ultralytics-install \
-  WORKSPACE=dist/arm-yolo26n-pi5-ultralytics
-make ultralytics-benchmark \
-  WORKSPACE=dist/arm-yolo26n-pi5-ultralytics
+git clone https://github.com/arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5.git
+cd Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
 ```
 
-The installer verifies every package artifact, installs the source-tracked
-native runtime wrapper, and registers the source-tracked backend with
-Ultralytics 8.4.108. The backend is selected by the model-specific package
-suffix. YOLO26n resolves the verified YOLO26n bundle from its descriptor. No
-runtime environment variables are required.
-Additional Ultralytics validation arguments may be appended to the benchmark
-command.
+### Run an example
+
+Run object detection on a sample video using the standard YOLO26n checkpoint:
+
+```bash
+make example-video
+```
+
+For a fine-tuned checkpoint, your own video, or live camera input, see
+[Usage](#usage).
+
+### Run the benchmark
+
+Run the [Ultralytics benchmark harness](https://docs.ultralytics.com/guides/raspberry-pi/#raspberry-pi-5-yolo26-benchmarks)
+using this runtime:
+
+```bash
+make ultralytics-benchmark
+```
+
+See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)
+for configuration options.
+
+## Usage
+
+### Acquiring a runtime
+
+A prebuilt runtime library is available from this repository's releases. The
+example and benchmark targets download the release matching the checked-out
+project version when no runtime exists under `dist/runtime/`.
+
+To build the runtime from source, install the native build prerequisites:
+
+```bash
+sudo apt update
+sudo apt install --yes --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  cmake \
+  git \
+  patch \
+  python3 \
+  python3-venv \
+  tar \
+  gzip
+```
+
+Then run:
+
+```bash
+make runtime
+```
+
+The resulting runtime is installed under `dist/runtime/`, where the examples
+and benchmark consume it automatically.
+
+### Acquiring a model
+
+The examples and benchmark require a YOLO26n checkpoint converted for this
+runtime. If the default model is absent, their Make targets download the pinned
+standard YOLO26n checkpoint and convert it automatically.
+
+The benchmark normally uses the standard model because its classes match the
+default COCO dataset. To use a compatible fine-tuned checkpoint with the video
+or camera examples, convert it first:
+
+```bash
+make model CHECKPOINT=/path/to/your-checkpoint.pt
+```
+
+The default conversion uses 640x640 input and writes the model under
+`dist/models/`. Select another supported resolution with, for example:
+
+```bash
+make model CHECKPOINT=/path/to/your-checkpoint.pt RESOLUTION=320
+```
+
+## Examples and benchmarks
+
+The examples use the [Python API](src/runtime/api/python/arm_yolo26n/README.md).
+Their Make targets prepare missing default runtime and model artifacts
+automatically.
+
+- [Object detection on prerecorded video](examples/video/README.md)
+- [Object detection on live video from a Raspberry Pi Camera](examples/picamera2/README.md)
+- [Ultralytics benchmark](benchmarks/ultralytics/README.md)
+
+## Other information
+
+Run `make help` for other useful commands.
+
+### Project layout
+
+- `src/converter/` - Converts compatible YOLO26n PyTorch checkpoints into the runtime model format.
+- `src/runtime/` - Implements the fixed YOLO26n runtime.
+- `src/runtime/patches/` - Contains project changes to XNNPACK and pthreadpool.
+- `src/runtime/api/python/arm_yolo26n/` - Provides the Python API.
+- `examples/` - Contains prerecorded-video and live-camera examples.
+- `benchmarks/ultralytics/` - Integrates the runtime with the Ultralytics benchmark.

@@ -1,27 +1,49 @@
 # Ultralytics benchmark
 
-This optional integration presents the YOLO26n runtime and a converted model to
-Ultralytics for accuracy and performance evaluation. It is the only repository area that
-requires Torch or Ultralytics.
+This optional integration runs the YOLO26n runtime through the Ultralytics
+validation harness for accuracy and performance comparison with other
+runtimes.
 
-- `arm_yolo26n_pi5_backend.py` adapts the native tensor session to the
-  Ultralytics backend interface.
-- `requirements.txt` pins the optional benchmark environment.
-- `patches/` registers that backend with the pinned Ultralytics release.
-- `patch.sh` installs the pinned benchmark environment and applies the patch.
-- `benchmark.py` creates the temporary descriptor required by Ultralytics,
-  runs the caller-selected validation dataset, and records the result.
+## Usage
 
-The top-level Make targets remain the supported command interface. Application
-code uses `arm_yolo26n` directly and does not depend on this benchmark tooling.
+Run the default COCO128 benchmark:
 
 ```sh
-make ultralytics-patch
-make ultralytics-benchmark \
-  RUNTIME="$PWD/dist/runtime/lib/libarm-yolo26n.so.0" \
-  MODEL="$PWD/dist/models/yolo26n-640" \
-  DATA=coco128.yaml
+make ultralytics-benchmark
 ```
 
-The temporary model descriptor exists only for the benchmark process. The
-runtime and converted model are not copied into a benchmark workspace.
+The target prepares any missing default runtime, converted model, and pinned
+benchmark environment. Ultralytics downloads COCO128 if the dataset is not
+already available.
+
+Select another Ultralytics dataset configuration with `DATA`:
+
+```sh
+make ultralytics-benchmark DATA=/path/to/dataset.yaml
+```
+
+Override `RUNTIME` or `MODEL` to measure existing artifacts:
+
+```sh
+make ultralytics-benchmark \
+  RUNTIME=/path/to/libarm-yolo26n.so.0 \
+  MODEL=/path/to/converted-model
+```
+
+Each invocation:
+
+1. obtains the default runtime and converts the pinned YOLO26n checkpoint when
+   those artifacts are missing;
+2. creates or reuses the pinned Ultralytics virtual environment;
+3. applies the integration patch and installs this runtime's backend;
+4. runs validation and records the result.
+
+See [Recording Ultralytics benchmark evidence](../reporting/README.md) for the
+output layout.
+
+## Layout
+
+- `arm_yolo26n_pi5_backend.py` adapts the runtime to the Ultralytics backend interface.
+- `patches/` contains the patch that registers the backend with the pinned Ultralytics release.
+- `patch.sh` prepares the virtual environment and applies the integration patch.
+- `benchmark.py` creates the temporary model descriptor and runs the recorded benchmark.
