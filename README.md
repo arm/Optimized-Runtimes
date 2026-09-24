@@ -58,6 +58,10 @@ make ultralytics-benchmark
 See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)
 for configuration options.
 
+The no-argument command uses Ultralytics COCO128 as an integration check. The
+accepted project performance baseline uses the unpublished
+`coco-128-by-sa` dataset supplied explicitly by benchmark operators.
+
 ## Usage
 
 ### Acquiring a runtime

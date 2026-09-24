@@ -7,7 +7,11 @@
 | Source revision | `<commit>` | `<commit>` |
 | Model manifest SHA-256 | `<sha256>` | `<sha256>` |
 | Runtime library SHA-256 | `<sha256>` | `<sha256>` |
-| Dataset | `<dataset>` | `<dataset>` |
+| Dataset name | `<dataset>` | `<dataset>` |
+| Dataset source-tree identity | `<identity>` | `<identity>` |
+| Dataset configuration SHA-256 | `<sha256>` | `<sha256>` |
+| Dataset images | `<count>` | `<count>` |
+| Dataset instances | `<count>` | `<count>` |
 | Ultralytics arguments | `<arguments>` | `<arguments>` |
 
 ## Ultralytics results
