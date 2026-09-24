@@ -1,7 +1,5 @@
 # Arm Runtime for YOLO26 on Raspberry Pi 5
 
-This repository contains the source for the [Arm Runtime for YOLO26 on Raspberry Pi 5](arm.github.io/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5) **CHECK LINK BEFORE PUBLISHING**
-
 ## About
 
 This runtime runs YOLO26n on Raspberry Pi 5 with Raspberry Pi OS Trixie. It is
