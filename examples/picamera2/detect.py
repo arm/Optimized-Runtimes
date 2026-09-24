@@ -59,8 +59,8 @@ def _parse_args() -> _Arguments:
     parser.add_argument(
         "--framerate",
         type=float,
-        default=22.0,
-        help="camera frame rate; 22 avoids ISP work above detector throughput",
+        default=30.0,
+        help="camera frame rate",
     )
     parser.add_argument(
         "--frames",

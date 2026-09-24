@@ -29,10 +29,9 @@
 
 Summarize conditions that materially help interpret the comparison, including
 throttling, temperature, available memory, filesystem cache, major page faults,
-and swap activity. Link to both `context.json` files for the complete record.
+and swap activity. Link to both `results.json` files for the complete record.
 
 ## Review
 
 State whether the observed accuracy and performance are acceptable for this
-change, including any qualifications. This is a review decision rather than an
-automated threshold.
+change, including any qualifications.
