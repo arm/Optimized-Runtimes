@@ -64,10 +64,3 @@ The CPU temperature increased from 47.4 °C to 52.9 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
 memory decreased from 7.70 GB to 7.61 GB, and peak benchmark-process-tree RSS
 was 465 MB.
-
-## Warm-cache repeatability check
-
-An immediate repeat with the same `coco-128-by-sa` dataset, model, runtime,
-CPU affinity, and Ultralytics options measured 38.3 ms/image inference. Its
-initial cached and reclaimable data totaled 0.70 GB. The evidence directory is
-`20260924T074341827321411Z-7ee806b34ca7`.
