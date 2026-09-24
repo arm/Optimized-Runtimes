@@ -9,6 +9,24 @@ operators, and operator fusion to maximize throughput on the Raspberry Pi CPU.
 The runtime supports the standard YOLO26n model and compatible fine-tuned
 variants at square resolutions of 320, 480, 640, 800, 960, and 1280 pixels.
 
+## Performance
+
+The following YOLO26n results were measured on Raspberry Pi 5 at 640x640,
+batch 1, against the 128-image, 1,113-instance `coco-128-by-sa` dataset.
+Inference time excludes preprocessing and postprocessing.
+
+| Runtime | Inference (ms/image) | mAP50-95 |
+| --- | ---: | ---: |
+| Arm Runtime (this project) | 36.40 | 0.4678 |
+| NCNN | 65.93 | 0.4703 |
+| MNN | 90.60 | 0.4454 |
+| OpenVINO | 104.14 | 0.4516 |
+| ONNX Runtime | 126.70 | 0.4516 |
+| ExecuTorch | 138.25 | 0.4677 |
+
+See the [performance baseline](benchmarks/reporting/baseline.md) for the Arm
+Runtime measurement and host context.
+
 ## Quick start
 
 ### Prerequisites
