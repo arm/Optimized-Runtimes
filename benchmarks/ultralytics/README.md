@@ -16,6 +16,16 @@ The target prepares any missing default runtime, converted model, and pinned
 benchmark environment. Ultralytics downloads COCO128 if the dataset is not
 already available.
 
+This default is useful for exercising the integration, but it is not the
+project's accepted performance workload. Performance evidence uses the
+unpublished `coco-128-by-sa` dataset and must currently supply its local
+validation configuration explicitly:
+
+```sh
+make ultralytics-benchmark \
+  DATA=/path/to/coco-128-by-sa/data-validation-all.yaml
+```
+
 Select another Ultralytics dataset configuration with `DATA`:
 
 ```sh
