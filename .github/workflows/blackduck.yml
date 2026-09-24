@@ -1,8 +1,8 @@
 name: Black Duck
 
-# Scan the four dependency closures documented in
-# docs/black-duck-scanning-scheme.md. This workflow receives a Black Duck API
-# token, so it runs only for trusted code already merged to main.
+# Scan the runtime, examples, build, and Ultralytics dependency closures. This
+# workflow receives a Black Duck API token, so it runs only for trusted code
+# already merged to main.
 on:
   push:
     branches:
