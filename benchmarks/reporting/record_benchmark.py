@@ -61,7 +61,7 @@ def _run(command: Sequence[str], log_path: Path) -> tuple[int, dict[str, object]
     child_usage = resource.getrusage(resource.RUSAGE_CHILDREN)
     report: dict[str, object] = {
         "version": 1,
-        "kind": "yolo26n-ultralytics-benchmark-context",
+        "kind": "yolo26n-ultralytics-benchmark-result",
         "command": list(command),
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
@@ -94,25 +94,26 @@ def record_benchmark(
         raise FileNotFoundError(f"runtime library does not exist: {runtime_library}")
     if not model_manifest.is_file():
         raise FileNotFoundError(f"model manifest does not exist: {model_manifest}")
+    manifest_document = json.loads(model_manifest.read_text(encoding="utf-8"))
+    if not isinstance(manifest_document, Mapping):
+        raise ValueError("model manifest must be a JSON object")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
-        retained_manifest = staging / "model-manifest.json"
-        shutil.copyfile(model_manifest, retained_manifest)
-        (staging / "revision.txt").write_text(f"{revision}\n", encoding="utf-8")
-        return_code, context = _run(command, staging / "benchmark.log")
-        context["source_revision"] = revision
-        context["runtime_library"] = {
+        return_code, result = _run(command, staging / "benchmark.log")
+        result["source_revision"] = revision
+        result["runtime_library"] = {
             "path": str(runtime_library),
             "bytes": runtime_library.stat().st_size,
             "sha256": _sha256(runtime_library),
         }
-        context["model_manifest"] = {
-            "path": retained_manifest.name,
-            "sha256": _sha256(retained_manifest),
+        result["model_manifest"] = {
+            "path": str(model_manifest),
+            "sha256": _sha256(model_manifest),
+            "document": manifest_document,
         }
-        _write_json(staging / "context.json", context)
+        _write_json(staging / "results.json", result)
         staging.rename(output)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -152,5 +153,5 @@ def _main() -> None:
 if __name__ == "__main__":
     try:
         _main()
-    except (OSError, RuntimeError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         raise SystemExit(f"error: {error}") from None

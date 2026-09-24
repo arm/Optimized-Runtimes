@@ -7,7 +7,6 @@ public JSON output.
 
 from __future__ import annotations
 
-import json
 import sys
 import unittest
 from pathlib import Path
@@ -48,17 +47,19 @@ class BenchmarkRecorderCommandTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertIn("benchmark output", completed.stdout)
             self.assertIn("benchmark output", (output / "benchmark.log").read_text())
-            self.assertEqual((output / "revision.txt").read_text(), "0123456789abcdef\n")
             self.assertEqual(
-                json.loads((output / "model-manifest.json").read_text())["kind"],
-                "yolo26n-exported-model",
+                {path.name for path in output.iterdir()}, {"benchmark.log", "results.json"}
             )
 
-            report = read_json(output / "context.json")
-            self.assertEqual(report["kind"], "yolo26n-ultralytics-benchmark-context")
+            report = read_json(output / "results.json")
+            self.assertEqual(report["kind"], "yolo26n-ultralytics-benchmark-result")
             self.assertEqual(report["exit_code"], 0)
             self.assertEqual(report["source_revision"], "0123456789abcdef")
-            self.assertEqual(report["model_manifest"]["path"], "model-manifest.json")
+            self.assertEqual(report["model_manifest"]["path"], str(manifest))
+            self.assertEqual(
+                report["model_manifest"]["document"],
+                {"kind": "yolo26n-exported-model", "version": 1},
+            )
             self.assertEqual(report["runtime_library"]["path"], str(runtime))
             self.assertGreaterEqual(report["child_peak_rss_bytes"], 0)
             for phase in ("before", "after"):
@@ -89,7 +90,7 @@ class BenchmarkRecorderCommandTests(unittest.TestCase):
                 "raise SystemExit(7)",
             )
             self.assertEqual(completed.returncode, 7)
-            self.assertEqual(read_json(output / "context.json")["exit_code"], 7)
+            self.assertEqual(read_json(output / "results.json")["exit_code"], 7)
 
 
 if __name__ == "__main__":
