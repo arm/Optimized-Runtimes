@@ -29,10 +29,11 @@ The host observations cover CPU policy, temperature, throttling, available
 memory, filesystem cache, major page faults, and swap activity.
 
 Every performance comparison must name its dataset and record the dataset
-source-tree identity, validation-configuration SHA-256, image count, and
-instance count. The accepted baseline uses the unpublished
-`coco-128-by-sa` dataset. It is supplied explicitly during qualification and
-is not the benchmark target's default dataset yet.
+Hub revision, validation-configuration SHA-256, image count, and instance
+count. The accepted baseline uses the pinned, unpublished candidate revision
+of `coco-128-by-sa` intended for publication. It is supplied explicitly during
+qualification and is not the benchmark target's default dataset. The exact
+revision is recorded in [`baseline.md`](baseline.md).
 
 The accepted baseline is recorded in [`baseline.md`](baseline.md). Update it
 only when review establishes a new accepted baseline result.
