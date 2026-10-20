@@ -19,12 +19,12 @@ and postprocessing.
 
 | Runtime | Inference (ms/image) | mAP50-95 |
 | --- | ---: | ---: |
-| Arm Runtime (this project) | 43.04 | 0.4866 |
-| NCNN | 80.72 | 0.4899 |
-| MNN | 99.96 | 0.4711 |
-| OpenVINO | 111.75 | 0.4787 |
-| ONNX Runtime | 143.05 | 0.4787 |
-| ExecuTorch | 158.24 | 0.4893 |
+| Arm Runtime (this project) | 36.80 | 0.4866 |
+| NCNN | 66.23 | 0.4899 |
+| MNN | 90.38 | 0.4711 |
+| OpenVINO | 102.56 | 0.4787 |
+| ONNX Runtime | 127.29 | 0.4787 |
+| ExecuTorch | 137.90 | 0.4893 |
 
 See the [performance baseline](benchmarks/reporting/baseline.md) for the Arm
 Runtime measurement and host context.

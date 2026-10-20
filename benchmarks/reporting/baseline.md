@@ -16,7 +16,7 @@ performance workload.
 
 | Item | Value |
 | --- | --- |
-| Source revision | `fefc40c532702f13052b584c8a83232a0896439d` |
+| Source revision | `c87e781ba97b353c99cd8fac2dd1995e0d2e43b6` |
 | Runtime library SHA-256 | `6b9978243ed1fd325e5b7b6a2bc616280862ed01edc1f653ee55b088658b60b2` |
 | Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
 | Dataset | `coco-128-by-sa` |
@@ -30,9 +30,9 @@ performance workload.
 | COCO annotations SHA-256 | `3c756fbb846ccfcc71218b13b3fa9e274e87764e015346cc143e8a36c08b7388` |
 | Ultralytics | 8.4.108 |
 | Ultralytics options | `workers=0 plots=False` |
-| Cache state | Warm; no major page faults during the run |
-| Evidence directory | `20261020T181348287318000Z-fefc40c53270` |
-| Recorded | 2026-10-20 18:13 UTC |
+| Cache state | Cold; host filesystem caches dropped immediately before each run |
+| Evidence directory | `20261020T182235078652000Z-c87e781ba97b` |
+| Recorded | 2026-10-20 18:22 UTC |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
@@ -48,12 +48,12 @@ writing validation plots; it does not change detector scoring.
 | mAP50 | 0.6587 |
 | mAP75 | 0.5290 |
 | mAP50-95 | 0.4866 |
-| Preprocess | 2.4 ms/image |
-| Inference | 43.5 ms/image |
-| Postprocess | 3.4 ms/image |
+| Preprocess | 2.2 ms/image |
+| Inference | 36.8 ms/image |
+| Postprocess | 3.9 ms/image |
 
-Three consecutive Arm Runtime validation runs measured 43.04, 41.61, and
-43.54 ms/image, for a median of 43.04 ms/image. The comparison table in the
+Three independent cold-cache Arm Runtime validation runs measured 37.3, 36.6,
+and 36.8 ms/image, for a median of 36.8 ms/image. The comparison table in the
 root README reports that median; the evidence directory above contains the
 last run.
 
@@ -61,16 +61,18 @@ last run.
 
 Each format was exported from the same standard YOLO26n checkpoint and
 validated with Ultralytics 8.4.108 using the dataset and validation settings
-above. The reported inference time excludes preprocessing and postprocessing.
+above. Host filesystem caches were dropped independently before each runtime
+measurement. The reported inference time excludes preprocessing and
+postprocessing.
 
 | Runtime | Version | Inference (ms/image) | mAP50-95 |
 | --- | --- | ---: | ---: |
-| Arm Runtime | 0.1.0 | 43.04 | 0.4866 |
-| NCNN | 1.0.20260526 | 80.72 | 0.4899 |
-| MNN | 3.6.1 | 99.96 | 0.4711 |
-| OpenVINO | 2026.4.1 | 111.75 | 0.4787 |
-| ONNX Runtime | 1.30.0 | 143.05 | 0.4787 |
-| ExecuTorch | 1.3.1+cpu | 158.24 | 0.4893 |
+| Arm Runtime | 0.1.0 | 36.80 | 0.4866 |
+| NCNN | 1.0.20260526 | 66.23 | 0.4899 |
+| MNN | 3.6.1 | 90.38 | 0.4711 |
+| OpenVINO | 2026.4.1 | 102.56 | 0.4787 |
+| ONNX Runtime | 1.30.0 | 127.29 | 0.4787 |
+| ExecuTorch | 1.3.1+cpu | 137.90 | 0.4893 |
 
 ## Host context
 
@@ -78,10 +80,12 @@ The measurement ran on a Raspberry Pi 5 Model B Rev 1.1 with Linux
 6.12.75+rpt-rpi-2712. All four cores were available, and the CPU frequency
 policy remained on the `performance` governor at 2.4 GHz.
 
-The host filesystem caches could not be dropped in this environment. Cached
-and reclaimable data totaled 6.27 GB before and after the run. No major page
-faults occurred, and swap input and output did not change during the run.
+The host filesystem caches were dropped immediately before each benchmark.
+For the recorded Arm Runtime run, cached and reclaimable data totaled 0.56 GB
+at the initial observation and 0.87 GB afterward. Cold reads caused 1,119
+major page faults; swap input and output did not change during the run.
 
-The CPU temperature increased from 51.3 °C to 54.0 °C. The firmware reported
+The CPU temperature increased from 50.2 °C to 51.8 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
-memory remained about 7.36 GB, and peak benchmark-process-tree RSS was 468 MB.
+memory decreased from 7.40 GB to 7.35 GB, and peak benchmark-process-tree RSS
+was 694 MB.
