@@ -8,9 +8,7 @@ their results with this measurement.
 The measurement uses the unpublished Hugging Face dataset revision identified
 below, which is the candidate intended for publication. Benchmark operators
 with access must download that revision and supply its local validation
-configuration explicitly with `DATA=/path/to/data.yaml`. The default
-`coco128.yaml` benchmark is a convenience workflow and is not the accepted
-performance workload.
+configuration explicitly with `DATA=/path/to/data.yaml`.
 
 ## Measurement
 
@@ -51,28 +49,6 @@ writing validation plots; it does not change detector scoring.
 | Preprocess | 2.2 ms/image |
 | Inference | 36.8 ms/image |
 | Postprocess | 3.9 ms/image |
-
-Three independent cold-cache Arm Runtime validation runs measured 37.3, 36.6,
-and 36.8 ms/image, for a median of 36.8 ms/image. The comparison table in the
-root README reports that median; the evidence directory above contains the
-last run.
-
-## Runtime comparison
-
-Each format was exported from the same standard YOLO26n checkpoint and
-validated with Ultralytics 8.4.108 using the dataset and validation settings
-above. Host filesystem caches were dropped independently before each runtime
-measurement. The reported inference time excludes preprocessing and
-postprocessing.
-
-| Runtime | Version | Inference (ms/image) | mAP50-95 |
-| --- | --- | ---: | ---: |
-| Arm Runtime | 0.1.0 | 36.80 | 0.4866 |
-| NCNN | 1.0.20260526 | 66.23 | 0.4899 |
-| MNN | 3.6.1 | 90.38 | 0.4711 |
-| OpenVINO | 2026.4.1 | 102.56 | 0.4787 |
-| ONNX Runtime | 1.30.0 | 127.29 | 0.4787 |
-| ExecuTorch | 1.3.1+cpu | 137.90 | 0.4893 |
 
 ## Host context
 
