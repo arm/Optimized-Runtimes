@@ -12,8 +12,9 @@ variants at square resolutions of 320, 480, 640, 800, 960, and 1280 pixels.
 ## Performance
 
 The following YOLO26n results were measured on Raspberry Pi 5 at 640x640,
-batch 1, against the 128-image, 1,113-instance `coco-128-by-sa` dataset.
-Inference time excludes preprocessing and postprocessing.
+batch 1, against the 128-image, 1,113-instance
+[`coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/cb1edb8da4ff3cb54d40ecb12d3efecc116ff3de)
+dataset revision. Inference time excludes preprocessing and postprocessing.
 
 | Runtime | Inference (ms/image) | mAP50-95 |
 | --- | ---: | ---: |
@@ -77,7 +78,7 @@ See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)
 for configuration options.
 
 The no-argument command uses Ultralytics COCO128 as an integration check. The
-accepted project performance baseline uses the unpublished
+accepted project performance baseline uses a pinned revision of the
 `coco-128-by-sa` dataset supplied explicitly by benchmark operators.
 
 ## Usage

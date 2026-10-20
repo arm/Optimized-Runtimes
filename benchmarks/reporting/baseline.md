@@ -5,11 +5,13 @@ and `coco-128-by-sa` dataset identified below. Future performance-sensitive
 changes must use the same dataset and validation configuration before comparing
 their results with this measurement.
 
-The dataset is not yet published. Until it is available through a stable public
-location, benchmark operators must supply its local validation configuration
-explicitly with `DATA=/path/to/data-validation-all.yaml`. The default
-`coco128.yaml` benchmark is a convenience workflow and is not the accepted
-performance workload.
+The measurement uses the pinned Hugging Face dataset revision identified
+below. Benchmark operators must download that revision and supply its local
+validation configuration explicitly with
+`DATA=/path/to/data-validation-all.yaml`. The default `coco128.yaml` benchmark
+is a convenience workflow and is not the accepted performance workload. The
+dataset's current `main` revision has a different image selection and must not
+be used to compare against this baseline.
 
 ## Measurement
 
@@ -19,6 +21,8 @@ performance workload.
 | Runtime library SHA-256 | `6b9978243ed1fd325e5b7b6a2bc616280862ed01edc1f653ee55b088658b60b2` |
 | Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
 | Dataset | `coco-128-by-sa` |
+| Dataset repository | [Arm/coco-128-by-sa](https://huggingface.co/datasets/Arm/coco-128-by-sa) |
+| Dataset Hub revision | [`cb1edb8da4ff3cb54d40ecb12d3efecc116ff3de`](https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/cb1edb8da4ff3cb54d40ecb12d3efecc116ff3de) |
 | Dataset images | 128 |
 | Dataset instances | 1,113 |
 | Dataset source-tree identity | `6c690e5f4fbab7295ae47be2e6730129236aee18` |

@@ -30,9 +30,10 @@ memory, filesystem cache, major page faults, and swap activity.
 
 Every performance comparison must name its dataset and record the dataset
 source-tree identity, validation-configuration SHA-256, image count, and
-instance count. The accepted baseline uses the unpublished
+instance count. The accepted baseline uses a pinned revision of the published
 `coco-128-by-sa` dataset. It is supplied explicitly during qualification and
-is not the benchmark target's default dataset yet.
+is not the benchmark target's default dataset. The exact revision is recorded
+in [`baseline.md`](baseline.md).
 
 The accepted baseline is recorded in [`baseline.md`](baseline.md). Update it
 only when review establishes a new accepted baseline result.

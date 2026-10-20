@@ -18,8 +18,9 @@ already available.
 
 This default is useful for exercising the integration, but it is not the
 project's accepted performance workload. Performance evidence uses the
-unpublished `coco-128-by-sa` dataset and must currently supply its local
-validation configuration explicitly:
+`coco-128-by-sa` revision pinned in the
+[accepted baseline](../reporting/baseline.md) and must supply that revision's
+local validation configuration explicitly:
 
 ```sh
 make ultralytics-benchmark \
