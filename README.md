@@ -1,3 +1,7 @@
+---
+license: other
+---
+
 # Arm Runtime for YOLO26 on Raspberry Pi 5
 
 ## About

@@ -12,7 +12,23 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from benchmarks.reporting.host_metrics import HostPreflight, HostSnapshot
 from tests.support import read_json, run_module
+
+
+def _snapshot(memory: dict[str, int], virtual_memory_events: dict[str, int]) -> HostSnapshot:
+    return HostSnapshot(
+        model=None,
+        kernel="test",
+        machine="aarch64",
+        cpu_affinity=(0, 1, 2, 3),
+        load_average=(0.0, 0.0, 0.0),
+        frequency=(),
+        temperature=(),
+        throttling=None,
+        memory_bytes=memory,
+        virtual_memory_events=virtual_memory_events,
+    )
 
 
 class BenchmarkRecorderCommandTests(unittest.TestCase):
@@ -91,6 +107,46 @@ class BenchmarkRecorderCommandTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 7)
             self.assertEqual(read_json(output / "results.json")["exit_code"], 7)
+
+    def test_preflight_rejects_ram_backing_and_active_memory_pressure(self) -> None:
+        gib = 1024**3
+        before = _snapshot(
+            {
+                "MemTotal": 8 * gib,
+                "MemAvailable": 512 * 1024**2,
+                "Dirty": 512 * 1024**2,
+                "Writeback": 0,
+            },
+            {
+                "workingset_refault_file": 0,
+                "pgscan_direct": 0,
+                "pgscan_kswapd": 0,
+                "pswpin": 0,
+                "pswpout": 0,
+            },
+        )
+        after = _snapshot(
+            before.memory_bytes,
+            {
+                "workingset_refault_file": 20_000,
+                "pgscan_direct": 20_000,
+                "pgscan_kswapd": 0,
+                "pswpin": 1,
+                "pswpout": 0,
+            },
+        )
+        preflight = HostPreflight.from_observations(before, after, {"/model": "tmpfs"})
+        self.assertEqual(
+            set(preflight.problems),
+            {
+                "benchmark path /model is on RAM-backed tmpfs",
+                "available memory is too low",
+                "too much dirty or writeback cache data",
+                "file-cache refault activity is high",
+                "memory reclaim is actively scanning pages",
+                "swap I/O occurred during the preflight interval",
+            },
+        )
 
 
 if __name__ == "__main__":

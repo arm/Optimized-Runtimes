@@ -95,12 +95,17 @@ def _main() -> None:
             + "\n",
             encoding="utf-8",
         )
+        benchmark_paths = [runtime, model]
+        dataset = Path(args.data).expanduser()
+        if dataset.exists():
+            benchmark_paths.append(dataset.resolve())
         return_code = record_benchmark(
             args.output_dir.expanduser().resolve(),
             runtime,
             manifest,
             args.revision,
             _yolo_command(yolo, descriptor, args.data, resolution, extra_arguments),
+            benchmark_paths,
         )
 
     print(f"benchmark evidence: {args.output_dir.expanduser().resolve()}")
