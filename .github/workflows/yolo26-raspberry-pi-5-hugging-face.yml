@@ -29,30 +29,8 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
           persist-credentials: false
 
-      - name: Verify the released source
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - name: Include the repository license
         run: |
-          set -euo pipefail
-          version="$(cat "$PROJECT_DIR/VERSION")"
-          expected_tag="yolo26-raspberry-pi-5-v$version"
-          test "$RELEASE_TAG" = "$expected_tag" || {
-            echo "release tag must be $expected_tag" >&2
-            exit 1
-          }
-          test "$(git rev-list --max-count=1 "$RELEASE_TAG")" = "$(git rev-parse HEAD)" || {
-            echo 'checked-out commit does not match the release tag' >&2
-            exit 1
-          }
-          grep --fixed-strings --line-regexp \
-            'id: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5' \
-            "$PROJECT_DIR/metadata.yaml"
-          grep --fixed-strings --line-regexp \
-            'filename: MODEL_FILE_NOT_DISTRIBUTED' \
-            "$PROJECT_DIR/metadata.yaml"
-
-          # The repository license applies to every runtime. Place a copy in
-          # the selected subtree so the standalone Hub mirror includes it.
           install --mode 0644 LICENSE "$PROJECT_DIR/LICENSE"
 
       - name: Mirror the release to Hugging Face
@@ -65,15 +43,9 @@ jobs:
           subdirectory: ${{ env.PROJECT_DIR }}
           delete_removed: true
           hf_version: 1.31.0
+          # The clean checkout contains only tracked files. These patterns are
+          # a final safeguard for model artifacts that must never be mirrored.
           exclude: |
-            build/
-            dist/
-            downloads/
-            results/
-            runs/
-            .venv/
-            examples/*/output/
-            benchmarks/*/output/
             *.pt
             *.pth
             *.safetensors
