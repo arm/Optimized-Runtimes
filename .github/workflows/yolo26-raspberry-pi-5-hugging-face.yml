@@ -1,5 +1,4 @@
 # Mirror each qualified GitHub release to the model's Hugging Face repository.
-# The Hub trusted publisher must match this repository and workflow filename.
 name: Mirror YOLO26n Raspberry Pi 5 release to Hugging Face
 
 on:
@@ -9,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: hugging-face-yolo26-raspberry-pi-5
@@ -23,7 +21,6 @@ jobs:
     name: Mirror release
     runs-on: ubuntu-24.04
     env:
-      HF_REPO_ID: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
       PROJECT_DIR: yolo26-raspberry-pi-5
     steps:
       - name: Check out the released source
@@ -32,7 +29,7 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
           persist-credentials: false
 
-      - name: Verify and stage the released snapshot
+      - name: Verify the released source
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
@@ -47,67 +44,38 @@ jobs:
             echo 'checked-out commit does not match the release tag' >&2
             exit 1
           }
-
-          mirror="$RUNNER_TEMP/hugging-face-mirror"
-          mkdir "$mirror"
-          git archive "HEAD:$PROJECT_DIR" | tar --extract --directory "$mirror"
-          install --mode 0644 LICENSE "$mirror/LICENSE"
-
-          forbidden="$(find "$mirror" \
-            \( -type d \( -name build -o -name dist -o -name downloads \
-              -o -name results -o -name runs -o -name .venv -o -name output \) \
-            -o -type f \( -name model.bin -o -name '*.pt' -o -name '*.pth' \
-              -o -name '*.safetensors' \) \) -print -quit)"
-          test -z "$forbidden" || {
-            echo "release snapshot contains excluded path: $forbidden" >&2
-            exit 1
-          }
-          test -f "$mirror/README.md"
-          test -f "$mirror/metadata.yaml"
-          test -f "$mirror/benchmark/accuracy.yaml"
-          grep --fixed-strings --line-regexp "id: $HF_REPO_ID" \
-            "$mirror/metadata.yaml"
           grep --fixed-strings --line-regexp \
-            'filename: MODEL_FILE_NOT_DISTRIBUTED' "$mirror/metadata.yaml"
+            'id: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5' \
+            "$PROJECT_DIR/metadata.yaml"
+          grep --fixed-strings --line-regexp \
+            'filename: MODEL_FILE_NOT_DISTRIBUTED' \
+            "$PROJECT_DIR/metadata.yaml"
 
-          {
-            echo "HF_RELEASE_TAG=v$version"
-            echo "MIRROR_DIR=$mirror"
-            echo "RELEASE_TAG=$RELEASE_TAG"
-          } >> "$GITHUB_ENV"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: false
+          # The repository license applies to every runtime. Place a copy in
+          # the selected subtree so the standalone Hub mirror includes it.
+          install --mode 0644 LICENSE "$PROJECT_DIR/LICENSE"
 
       - name: Mirror the release to Hugging Face
-        env:
-          HF_OIDC_RESOURCE: ${{ env.HF_REPO_ID }}
-        run: |
-          set -euo pipefail
-          HF=(uvx hf@1.31.0)
-          "${HF[@]}" upload "$HF_REPO_ID" "$MIRROR_DIR" . \
-            --type model \
-            --delete '*' \
-            --commit-message "Release $RELEASE_TAG" \
-            --commit-description \
-              "Mirrored from https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG"
-
-          main_sha="$("${HF[@]}" models info "$HF_REPO_ID" \
-            --revision main --format json \
-            | python3 -c 'import json, sys; print(json.load(sys.stdin)["sha"])')"
-          if tag_json="$("${HF[@]}" models info "$HF_REPO_ID" \
-              --revision "$HF_RELEASE_TAG" --format json 2>/dev/null)"; then
-            tag_sha="$(python3 -c \
-              'import json, sys; print(json.load(sys.stdin)["sha"])' \
-              <<< "$tag_json")"
-            test "$tag_sha" = "$main_sha" || {
-              echo "Hugging Face tag $HF_RELEASE_TAG already points to $tag_sha" >&2
-              exit 1
-            }
-          else
-            "${HF[@]}" repos tag create "$HF_REPO_ID" "$HF_RELEASE_TAG" \
-              --revision "$main_sha" \
-              --message "Release $RELEASE_TAG"
-          fi
+        uses: huggingface/hub-sync@fdffea8e04104d0bd4e3181c5feb3025f0433ff5 # v0.3.0
+        with:
+          github_repo_id: ${{ github.repository }}
+          huggingface_repo_id: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+          hf_token: ${{ secrets.HF_TOKEN }}
+          repo_type: model
+          subdirectory: ${{ env.PROJECT_DIR }}
+          delete_removed: true
+          hf_version: 1.31.0
+          exclude: |
+            build/
+            dist/
+            downloads/
+            results/
+            runs/
+            .venv/
+            examples/*/output/
+            benchmarks/*/output/
+            *.pt
+            *.pth
+            *.safetensors
+            model.bin
+            */model.bin
