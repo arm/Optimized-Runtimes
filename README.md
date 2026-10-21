@@ -1,5 +1,13 @@
 ---
-license: other
+license: apache-2.0
+pipeline_tag: object-detection
+base_model: yolo26n
+tags:
+  - arm
+  - arm-optimized
+  - edge-linux
+  - raspberry-pi-5
+  - xnnpack
 ---
 
 # Arm Runtime for YOLO26 on Raspberry Pi 5
