@@ -6,6 +6,7 @@ the result.
 
 ## Usage
 
+Run benchmark commands from the `yolo26-raspberry-pi-5/` runtime directory.
 Reporting runs automatically through the Make target. See the
 [Ultralytics benchmark documentation](../ultralytics/README.md) for benchmark
 options.
@@ -30,13 +31,12 @@ memory, filesystem cache, major page faults, and swap activity.
 
 Every performance comparison must name its dataset and record the dataset
 Hub revision, validation-configuration SHA-256, image count, and instance
-count. The accepted baseline uses the pinned, unpublished candidate revision
-of `coco-128-by-sa` intended for publication. It is supplied explicitly during
-qualification and is not the benchmark target's default dataset. The exact
-revision is recorded in [`baseline.md`](baseline.md).
+count. The accepted baseline uses the pinned `coco-128-by-sa` revision selected
+for publication. It is supplied explicitly during qualification and is not the
+benchmark target's default dataset. The exact revision is recorded in
+[`baseline.md`](baseline.md).
 
-The accepted baseline is recorded in [`baseline.md`](baseline.md). Update it
-only when review establishes a new accepted baseline result.
+Update the accepted baseline only when review establishes a new result.
 
 For a performance-sensitive pull request, summarize the reference and current
 evidence with [`performance-report-template.md`](performance-report-template.md)

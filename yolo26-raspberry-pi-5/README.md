@@ -24,10 +24,10 @@ variants at square resolutions of 320, 480, 640, 800, 960, and 1280 pixels.
 ## Performance
 
 The following YOLO26n results were measured on Raspberry Pi 5 at 640x640,
-batch 1, against the published 128-image, 1,050-instance
+batch 1, against the 128-image, 1,050-instance
 [`coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/e7a3ecd065a304caddd2f170b8d41aeda66735b5)
-dataset revision. Inference time excludes preprocessing
-and postprocessing.
+dataset revision selected for publication. Inference time excludes
+preprocessing and postprocessing.
 
 | Runtime | Inference (ms/image) | mAP50-95 |
 | --- | ---: | ---: |

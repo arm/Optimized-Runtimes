@@ -30,7 +30,7 @@ the model's nineteen XNNPACK graphs when a runtime instance is created.
 
 ## Building
 
-From the repository root, run:
+From the `yolo26-raspberry-pi-5/` runtime directory, run:
 
 ```sh
 make runtime

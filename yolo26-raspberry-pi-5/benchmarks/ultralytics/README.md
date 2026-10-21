@@ -6,6 +6,8 @@ runtimes.
 
 ## Usage
 
+Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
+
 Run the default COCO128 benchmark:
 
 ```sh
@@ -18,7 +20,7 @@ already available.
 
 This default is useful for exercising the integration, but it is not the
 project's accepted performance workload. Performance evidence uses the
-unpublished `coco-128-by-sa` candidate revision pinned in the
+`coco-128-by-sa` revision pinned in the
 [accepted baseline](../reporting/baseline.md) and must supply that revision's
 local validation configuration explicitly:
 

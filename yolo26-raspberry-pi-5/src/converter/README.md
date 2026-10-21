@@ -4,7 +4,8 @@ The converter turns a compatible YOLO26n PyTorch checkpoint into the
 `model.bin` and `manifest.json` files consumed by the native runtime. It uses
 the Python 3.13 standard library and does not import Torch or Ultralytics.
 
-Export and validate a checkpoint from the repository root:
+Export and validate a checkpoint from the `yolo26-raspberry-pi-5/` runtime
+directory:
 
 ```sh
 make model RESOLUTION=640 CHECKPOINT=/absolute/yolo26n.pt
