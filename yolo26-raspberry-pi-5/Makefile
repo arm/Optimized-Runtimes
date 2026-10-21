@@ -60,6 +60,8 @@ endif
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
+# TODO: Fetch and use the pinned coco-128-by-sa revision by default once the
+# dataset is public.
 DATA ?= coco128.yaml
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 # Evidence is immutable, so each default invocation needs a fresh directory.

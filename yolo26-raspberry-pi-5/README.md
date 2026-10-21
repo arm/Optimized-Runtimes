@@ -81,10 +81,10 @@ For a fine-tuned checkpoint, your own video, or live camera input, see
 ### Run the benchmark
 
 Run the [Ultralytics benchmark harness](https://docs.ultralytics.com/guides/raspberry-pi/#raspberry-pi-5-yolo26-benchmarks)
-against `coco-128-by-sa` using this runtime:
+using this runtime:
 
 ```bash
-make ultralytics-benchmark DATA=/path/to/coco-128-by-sa/data.yaml
+make ultralytics-benchmark
 ```
 
 See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)

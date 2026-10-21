@@ -8,18 +8,14 @@ runtimes.
 
 Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
 
-Run the benchmark against the `coco-128-by-sa` dataset used for the project's
-[accepted baseline](../reporting/baseline.md):
+Run the benchmark:
 
 ```sh
-make ultralytics-benchmark \
-  DATA=/path/to/coco-128-by-sa/data.yaml
+make ultralytics-benchmark
 ```
 
 The target prepares any missing default runtime, converted model, and pinned
-benchmark environment. Use the dataset revision and local validation
-configuration identified in the accepted baseline when recording comparable
-performance evidence.
+benchmark environment.
 
 Select another Ultralytics dataset configuration with `DATA`:
 
