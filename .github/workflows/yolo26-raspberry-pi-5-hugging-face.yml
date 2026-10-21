@@ -42,7 +42,7 @@ jobs:
           repo_type: model
           subdirectory: ${{ env.PROJECT_DIR }}
           delete_removed: true
-          # hub-sync otherwise installs the latest hf CLI on every run.
+          # Pin the CLI version that is used.
           hf_version: 1.31.0
           # The clean checkout contains only tracked files. These patterns are
           # a final safeguard for model artifacts that must never be mirrored.
