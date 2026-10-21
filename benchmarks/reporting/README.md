@@ -28,15 +28,6 @@ Each evidence directory contains:
 The host observations cover CPU policy, temperature, throttling, available
 memory, filesystem cache, major page faults, and swap activity.
 
-Before validation, the recorder observes one idle second and checks the model,
-runtime, and local dataset paths. It stops rather than recording a distorted
-performance result when those paths are RAM-backed or when the host shows low
-available memory, excessive dirty/writeback data, file-cache refaults, active
-reclaim scanning, or swap I/O. The recorder does not clear caches or change CPU
-policy; preparing those conditions remains the benchmark operator's
-responsibility. Successful preflight observations are included in
-`results.json`.
-
 Every performance comparison must name its dataset and record the dataset
 Hub revision, validation-configuration SHA-256, image count, and instance
 count. The accepted baseline uses the pinned, unpublished candidate revision

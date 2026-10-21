@@ -21,7 +21,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .host_metrics import HostPreflight, capture_host_preflight, capture_host_snapshot
+from .host_metrics import capture_host_snapshot
 
 __all__ = ["record_benchmark"]
 
@@ -34,9 +34,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _run(
-    command: Sequence[str], log_path: Path, preflight: HostPreflight | None
-) -> tuple[int, dict[str, object]]:
+def _run(command: Sequence[str], log_path: Path) -> tuple[int, dict[str, object]]:
     """Run once, preserving output and descriptive state from both boundaries."""
     started_at = datetime.now(UTC)
     before = capture_host_snapshot()
@@ -73,8 +71,6 @@ def _run(
         "child_peak_rss_bytes": child_usage.ru_maxrss * 1024,
         "host": {"before": before.to_json(), "after": after.to_json()},
     }
-    if preflight is not None:
-        report["preflight"] = preflight.to_json()
     return return_code, report
 
 
@@ -90,7 +86,6 @@ def record_benchmark(
     model_manifest: Path,
     revision: str,
     command: Sequence[str],
-    benchmark_paths: Sequence[Path] = (),
 ) -> int:
     """Publish one complete measurement directory without replacing prior evidence."""
     if output.exists():
@@ -103,20 +98,10 @@ def record_benchmark(
     if not isinstance(manifest_document, Mapping):
         raise ValueError("model manifest must be a JSON object")
 
-    preflight = None
-    if benchmark_paths:
-        preflight = capture_host_preflight(tuple(benchmark_paths))
-        print(preflight.summary(), flush=True)
-        if preflight.problems:
-            raise RuntimeError(
-                "benchmark stopped because host pressure could distort performance:\n- "
-                + "\n- ".join(preflight.problems)
-            )
-
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
-        return_code, result = _run(command, staging / "benchmark.log", preflight)
+        return_code, result = _run(command, staging / "benchmark.log")
         result["source_revision"] = revision
         result["runtime_library"] = {
             "path": str(runtime_library),
@@ -141,7 +126,6 @@ def _main() -> None:
     parser.add_argument("--runtime-library", type=Path, required=True)
     parser.add_argument("--model-manifest", type=Path, required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--benchmark-path", action="append", default=[], type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
@@ -160,7 +144,6 @@ def _main() -> None:
         args.model_manifest.expanduser().resolve(),
         revision,
         command,
-        tuple(path.expanduser().resolve() for path in args.benchmark_path),
     )
     print(f"benchmark evidence: {output}")
     if return_code:

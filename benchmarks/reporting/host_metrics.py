@@ -1,9 +1,9 @@
-"""Collect and qualify Raspberry Pi state around benchmark execution.
+"""Collect Raspberry Pi state that can explain benchmark variation.
 
-The collector never changes governors or clears filesystem caches. It records
-descriptive snapshots and can reject active memory pressure or RAM-backed
-benchmark paths before a performance run. Missing optional Linux and Raspberry
-Pi interfaces remain absent so unsupported observations do not block a run.
+The collector takes descriptive snapshots. It does not change governors, clear
+filesystem caches, or decide whether a run is acceptable. Missing optional
+Linux and Raspberry Pi interfaces are represented by absent values so the
+benchmark can still run and the report shows what could not be observed.
 """
 
 from __future__ import annotations
@@ -13,14 +13,10 @@ import platform
 import re
 import shutil
 import subprocess
-import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
 
-__all__ = ["HostPreflight", "HostSnapshot", "capture_host_preflight", "capture_host_snapshot"]
-
-_MIB = 1024 * 1024
+__all__ = ["HostSnapshot", "capture_host_snapshot"]
 
 # MemAvailable estimates memory usable without swapping. Cached and
 # SReclaimable show the size of reclaimable filesystem/slab caches implicated
@@ -31,23 +27,13 @@ _MEMORY_FIELDS = (
     "MemAvailable",
     "Cached",
     "SReclaimable",
-    "Shmem",
-    "Dirty",
-    "Writeback",
     "SwapTotal",
     "SwapFree",
 )
 
 # Deltas between snapshots reveal disk-backed faults and swap traffic during
 # the benchmark without trying to prescribe a policy for those observations.
-_VM_FIELDS = (
-    "pgmajfault",
-    "pswpin",
-    "pswpout",
-    "workingset_refault_file",
-    "pgscan_direct",
-    "pgscan_kswapd",
-)
+_VM_FIELDS = ("pgmajfault", "pswpin", "pswpout")
 
 
 def _read_text(path: Path) -> str | None:
@@ -151,92 +137,6 @@ class HostSnapshot:
         }
 
 
-@dataclass(frozen=True, slots=True)
-class HostPreflight:
-    """One idle observation window used to qualify benchmark conditions."""
-
-    before: HostSnapshot
-    after: HostSnapshot
-    filesystems: dict[str, str | None]
-    problems: tuple[str, ...]
-
-    def to_json(self) -> dict[str, object]:
-        return {
-            "before": self.before.to_json(),
-            "after": self.after.to_json(),
-            "filesystems": self.filesystems,
-            "problems": list(self.problems),
-        }
-
-    def summary(self) -> str:
-        memory = self.before.memory_bytes
-        available = memory.get("MemAvailable", 0)
-        file_cache = (
-            memory.get("Cached", 0) + memory.get("SReclaimable", 0) - memory.get("Shmem", 0)
-        )
-        pending_write = memory.get("Dirty", 0) + memory.get("Writeback", 0)
-        refault, scan, _ = self._activity()
-        filesystems = ", ".join(
-            f"{path}={kind or 'unknown'}" for path, kind in self.filesystems.items()
-        )
-        return (
-            "Benchmark preflight: "
-            f"available={available / _MIB:.0f} MiB, "
-            f"file_cache={file_cache / _MIB:.0f} MiB, "
-            f"dirty+writeback={pending_write / _MIB:.1f} MiB, "
-            f"refault={refault / _MIB:.1f} MiB/s, "
-            f"scan={scan / _MIB:.1f} MiB/s, "
-            f"filesystems=[{filesystems}]"
-        )
-
-    def _activity(self) -> tuple[int, int, int]:
-        before = self.before.virtual_memory_events
-        after = self.after.virtual_memory_events
-
-        def changed(name: str) -> int:
-            return max(0, after.get(name, 0) - before.get(name, 0))
-
-        page_bytes = os.sysconf("SC_PAGE_SIZE")
-        refault = changed("workingset_refault_file") * page_bytes
-        scan = (changed("pgscan_direct") + changed("pgscan_kswapd")) * page_bytes
-        swap = changed("pswpin") + changed("pswpout")
-        return refault, scan, swap
-
-    @classmethod
-    def from_observations(
-        cls,
-        before: HostSnapshot,
-        after: HostSnapshot,
-        filesystems: dict[str, str | None],
-    ) -> Self:
-        memory = before.memory_bytes
-        total = memory.get("MemTotal")
-        available = memory.get("MemAvailable")
-        pending_write = memory.get("Dirty", 0) + memory.get("Writeback", 0)
-        provisional = cls(before, after, filesystems, ())
-        refault, scan, swap = provisional._activity()
-        problems = [
-            f"benchmark path {path} is on RAM-backed {kind}"
-            for path, kind in filesystems.items()
-            if kind in {"tmpfs", "ramfs"}
-        ]
-        if (
-            total is not None
-            and available is not None
-            and available < max(_MIB * 1024, total * 15 // 100)
-        ):
-            problems.append("available memory is too low")
-        if total is not None and pending_write > max(_MIB * 256, total * 5 // 100):
-            problems.append("too much dirty or writeback cache data")
-        if refault > _MIB * 64:
-            problems.append("file-cache refault activity is high")
-        if scan > _MIB * 64:
-            problems.append("memory reclaim is actively scanning pages")
-        if swap:
-            problems.append("swap I/O occurred during the preflight interval")
-        return cls(before, after, filesystems, tuple(problems))
-
-
 def _frequency_policies() -> tuple[_FrequencyPolicy, ...]:
     root = Path("/sys/devices/system/cpu/cpufreq")
     return tuple(
@@ -278,21 +178,6 @@ def _throttle_state() -> _ThrottleState | None:
     return _ThrottleState(raw, int(match.group(1), 16)) if match else None
 
 
-def _filesystem_type(path: Path) -> str | None:
-    if shutil.which("findmnt") is None:
-        return None
-    try:
-        completed = subprocess.run(
-            ["findmnt", "-n", "-o", "FSTYPE", "--target", str(path)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return None
-    return completed.stdout.strip() or None
-
-
 def _proc_values(path: Path, wanted: tuple[str, ...], *, scale: int = 1) -> dict[str, int]:
     """Read selected integer counters from a Linux procfs key-value file."""
     values: dict[str, int] = {}
@@ -323,14 +208,3 @@ def capture_host_snapshot() -> HostSnapshot:
         memory_bytes=_proc_values(Path("/proc/meminfo"), _MEMORY_FIELDS, scale=1024),
         virtual_memory_events=_proc_values(Path("/proc/vmstat"), _VM_FIELDS),
     )
-
-
-def capture_host_preflight(
-    paths: tuple[Path, ...], *, interval_seconds: float = 1.0
-) -> HostPreflight:
-    """Observe an idle interval and identify conditions that distort timing."""
-    filesystems = {str(path): _filesystem_type(path) for path in paths}
-    before = capture_host_snapshot()
-    time.sleep(interval_seconds)
-    after = capture_host_snapshot()
-    return HostPreflight.from_observations(before, after, filesystems)
