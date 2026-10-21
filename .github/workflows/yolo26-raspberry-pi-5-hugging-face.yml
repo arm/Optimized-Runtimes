@@ -38,7 +38,7 @@ jobs:
         with:
           github_repo_id: ${{ github.repository }}
           huggingface_repo_id: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
-          hf_token: ${{ secrets.HF_TOKEN }}
+          hf_token: ${{ secrets.HF_TOKEN_RPI5_YOLO26 }}
           repo_type: model
           subdirectory: ${{ env.PROJECT_DIR }}
           delete_removed: true
