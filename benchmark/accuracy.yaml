@@ -5,7 +5,7 @@ created_at: '2026-10-20T17:58:48Z'
 context:
   target_ref: raspberry-pi-5-8gb
   runtime:
-    name: Arm Runtime for YOLO26 on Raspberry Pi 5
+    name: Arm Optimized Runtimes
     execution_backend: cpu
     version: 0.1.0
     config:
