@@ -90,9 +90,10 @@ make ultralytics-benchmark
 See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)
 for configuration options.
 
-The no-argument command uses Ultralytics COCO128 as an integration check. The
-accepted project performance baseline uses a pinned revision of the
-`coco-128-by-sa` dataset supplied explicitly by benchmark operators.
+For now, the no-argument command uses Ultralytics COCO128 as an integration
+check; it does not reproduce the performance table above. Those measurements
+use the pinned `coco-128-by-sa` revision, supplied explicitly while that
+dataset is not publicly available.
 
 ## Usage
 
