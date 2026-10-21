@@ -1,7 +1,7 @@
 # Promote the packages retained by a successful main build into a draft GitHub
 # release after its Black Duck result has been reviewed. This workflow verifies
 # the retained files and never rebuilds them.
-name: Create release candidate
+name: Create YOLO26n Raspberry Pi 5 release candidate
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release
+  group: release-yolo26-raspberry-pi-5
   cancel-in-progress: false
 
 jobs:
@@ -28,6 +28,7 @@ jobs:
     environment: release-candidate
     env:
       GH_TOKEN: ${{ github.token }}
+      PROJECT_DIR: yolo26-raspberry-pi-5
     steps:
       - name: Check out main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,7 +40,8 @@ jobs:
           BLACK_DUCK_REVIEWED: ${{ inputs.black_duck_reviewed }}
         run: |
           release_revision="$(git rev-parse HEAD)"
-          release_version="$(cat VERSION)"
+          release_version="$(cat "$PROJECT_DIR/VERSION")"
+          release_tag="yolo26-raspberry-pi-5-v$release_version"
           test "$release_revision" = "$GITHUB_SHA" || {
             echo 'checked-out commit does not match the workflow commit' >&2
             exit 1
@@ -52,17 +54,18 @@ jobs:
             echo 'Black Duck review must be confirmed' >&2
             exit 1
           }
-          if gh release view "v$release_version" >/dev/null 2>&1; then
-            echo "release v$release_version already exists" >&2
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "release $release_tag already exists" >&2
             exit 1
           fi
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$release_version" \
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$release_tag" \
               >/dev/null 2>&1; then
-            echo "tag v$release_version already exists" >&2
+            echo "tag $release_tag already exists" >&2
             exit 1
           fi
           {
             echo "RELEASE_REVISION=$release_revision"
+            echo "RELEASE_TAG=$release_tag"
             echo "RELEASE_VERSION=$release_version"
           } >> "$GITHUB_ENV"
 
@@ -70,7 +73,7 @@ jobs:
         id: find_runs
         run: |
           build="$(gh api --method GET \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/yolo26-raspberry-pi-5-build.yml/runs" \
             -f head_sha="$RELEASE_REVISION" -f event=push -f status=success \
             -f per_page=100 \
             --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
@@ -81,7 +84,7 @@ jobs:
           }
 
           black_duck="$(gh api --method GET \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/blackduck.yml/runs" \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/yolo26-raspberry-pi-5-blackduck.yml/runs" \
             -f head_sha="$RELEASE_REVISION" -f event=push -f status=success \
             -f per_page=100 \
             --jq '.workflow_runs | sort_by(.run_number) | last | [.id, .html_url] | @tsv')"
@@ -184,7 +187,7 @@ jobs:
           This draft must not be published until the exact attached files have
           completed Raspberry Pi 5 qualification and human review.
           EOF
-          gh release create "v$RELEASE_VERSION" build/release/input/* \
+          gh release create "$RELEASE_TAG" build/release/input/* \
             --draft \
             --target "$RELEASE_REVISION" \
             --title "Arm Runtime for YOLO26n $RELEASE_VERSION" \
