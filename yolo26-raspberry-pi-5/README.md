@@ -81,19 +81,14 @@ For a fine-tuned checkpoint, your own video, or live camera input, see
 ### Run the benchmark
 
 Run the [Ultralytics benchmark harness](https://docs.ultralytics.com/guides/raspberry-pi/#raspberry-pi-5-yolo26-benchmarks)
-using this runtime:
+against `coco-128-by-sa` using this runtime:
 
 ```bash
-make ultralytics-benchmark
+make ultralytics-benchmark DATA=/path/to/coco-128-by-sa/data.yaml
 ```
 
 See the [Ultralytics benchmark documentation](benchmarks/ultralytics/README.md)
 for configuration options.
-
-For now, the no-argument command uses Ultralytics COCO128 as an integration
-check; it does not reproduce the performance table above. Those measurements
-use the pinned `coco-128-by-sa` revision, supplied explicitly while that
-dataset is not publicly available.
 
 ## Usage
 
