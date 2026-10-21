@@ -6,26 +6,16 @@ runtimes.
 
 ## Usage
 
-Run the default COCO128 benchmark:
+Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
+
+Run the benchmark:
 
 ```sh
 make ultralytics-benchmark
 ```
 
 The target prepares any missing default runtime, converted model, and pinned
-benchmark environment. Ultralytics downloads COCO128 if the dataset is not
-already available.
-
-This default is useful for exercising the integration, but it is not the
-project's accepted performance workload. Performance evidence uses the
-unpublished `coco-128-by-sa` candidate revision pinned in the
-[accepted baseline](../reporting/baseline.md) and must supply that revision's
-local validation configuration explicitly:
-
-```sh
-make ultralytics-benchmark \
-  DATA=/path/to/coco-128-by-sa/data.yaml
-```
+benchmark environment.
 
 Select another Ultralytics dataset configuration with `DATA`:
 

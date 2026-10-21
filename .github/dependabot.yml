@@ -5,6 +5,6 @@ updates:
     schedule:
       interval: weekly
   - package-ecosystem: pip
-    directory: /
+    directory: /yolo26-raspberry-pi-5
     schedule:
       interval: weekly

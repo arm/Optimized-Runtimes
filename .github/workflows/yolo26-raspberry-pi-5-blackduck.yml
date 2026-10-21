@@ -1,4 +1,4 @@
-name: Black Duck
+name: Scan YOLO26n for Raspberry Pi 5
 
 # Scan the runtime, examples, build, and Ultralytics dependency closures. This
 # workflow receives a Black Duck API token, so it runs only for trusted code
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: black-duck-${{ github.ref }}
+  group: black-duck-yolo26-raspberry-pi-5-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -75,6 +75,7 @@ jobs:
               --detect.required.detector.types=PIP
               --detect.accuracy.required=PIP
     env:
+      PROJECT_DIR: yolo26-raspberry-pi-5
       PIP_CONFIG_FILE: /dev/null
       DETECT_PROJECT_NAME: ${{ vars.BLACKDUCK_PROJECT_NAME }}
       DETECT_PROJECT_VERSION_DISTRIBUTION: ${{ matrix.distribution }}
@@ -137,12 +138,14 @@ jobs:
 
       - name: Prepare runtime dependency sources
         if: matrix.closure == 'runtime'
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           make runtime-configure \
-            RUNTIME_BUILD="$GITHUB_WORKSPACE/build/blackduck/runtime"
+            RUNTIME_BUILD="$GITHUB_WORKSPACE/$PROJECT_DIR/build/blackduck/runtime"
 
       - name: Prepare locked Python closure
         if: matrix.closure != 'runtime'
+        working-directory: ${{ env.PROJECT_DIR }}
         env:
           REQUIREMENTS: ${{ matrix.requirements }}
           SCAN_DIRECTORY: ${{ matrix.directory }}
@@ -153,9 +156,9 @@ jobs:
           python3 -m venv "$VENV"
           "$VENV/bin/python" -m pip install --require-hashes \
             --requirement "$SCAN_DIRECTORY/requirements.txt"
-          echo "DETECT_PYTHON_PATH=$GITHUB_WORKSPACE/$VENV/bin/python" >> "$GITHUB_ENV"
-          echo "DETECT_PIP_PATH=$GITHUB_WORKSPACE/$VENV/bin/pip" >> "$GITHUB_ENV"
-          echo "DETECT_PIP_REQUIREMENTS_PATH=$GITHUB_WORKSPACE/$SCAN_DIRECTORY/requirements.txt" \
+          echo "DETECT_PYTHON_PATH=$GITHUB_WORKSPACE/$PROJECT_DIR/$VENV/bin/python" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_PATH=$GITHUB_WORKSPACE/$PROJECT_DIR/$VENV/bin/pip" >> "$GITHUB_ENV"
+          echo "DETECT_PIP_REQUIREMENTS_PATH=$GITHUB_WORKSPACE/$PROJECT_DIR/$SCAN_DIRECTORY/requirements.txt" \
             >> "$GITHUB_ENV"
 
       - name: Scan ${{ matrix.closure }} closure
@@ -165,5 +168,5 @@ jobs:
           blackducksca_token: ${{ secrets.BLACKDUCK_TOKEN }}
           blackducksca_scan_full: true
           blackducksca_waitForScan: true
-          project_directory: ${{ matrix.directory }}
+          project_directory: ${{ env.PROJECT_DIR }}/${{ matrix.directory }}
           detect_args: ${{ matrix.detect_args }}

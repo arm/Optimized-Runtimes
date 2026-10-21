@@ -190,6 +190,6 @@ install(FILES arm_yolo26n.h
 install(DIRECTORY licenses/
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/arm-yolo26n/licenses"
   COMPONENT runtime)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/arm-yolo26n"
   COMPONENT runtime)

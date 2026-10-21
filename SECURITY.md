@@ -11,8 +11,7 @@ the project begins publishing versions.
 
 Do not open a public issue for a suspected vulnerability. Report it through
 the [Arm Product Security Center](https://support.arm.com/arm-product-security-center)
-or email `psirt@arm.com`. Identify the project as the YOLO26n Raspberry Pi 5
-runtime and include:
+or email `psirt@arm.com`. Identify the affected optimized runtime and include:
 
 - the affected commit or release;
 - the affected component and supported environment;

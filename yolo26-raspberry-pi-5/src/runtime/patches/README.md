@@ -1,10 +1,10 @@
 # Native dependency patches
 
 The runtime builds immutable upstream XNNPACK and pthreadpool revisions, then
-applies the patches in this directory from CMake. They patches are intended 
-to include only functionality required to enable YOLO26n inference on 
-Raspberry Pi 5 using Linux AArch64 and four worker threads. They are not intended 
-to remain useful to arbitrary XNNPACK or pthreadpool consumers.
+applies the patches in this directory from CMake. These patches are intended
+to include only functionality required to enable YOLO26n inference on
+Raspberry Pi 5 using Linux AArch64 and four worker threads. They are not
+intended to remain useful to arbitrary XNNPACK or pthreadpool consumers.
 
 ## Patch responsibilities
 

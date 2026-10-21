@@ -11,6 +11,8 @@ The example writes:
 
 ## Usage
 
+Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
+
 ### Prerequisites
 
 Install the required packages:

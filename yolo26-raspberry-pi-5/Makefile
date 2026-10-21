@@ -31,9 +31,9 @@ CONVERTER_PACKAGE := $(PACKAGE_DIST)/arm_yolo26n_converter-$(VERSION)-py3-none-a
 RELEASE_PACKAGE := $(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64.tar.gz
 RELEASE_DEVELOPMENT_PACKAGE := \
 	$(PACKAGE_DIST)/arm-yolo26n-$(VERSION)-rpi5-trixie-arm64-dev.tar.gz
-RUNTIME_RELEASE ?= v$(VERSION)
+RUNTIME_RELEASE ?= yolo26-raspberry-pi-5-v$(VERSION)
 RUNTIME_ARCHIVE := $(notdir $(RELEASE_PACKAGE))
-RUNTIME_REPOSITORY := arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+RUNTIME_REPOSITORY := arm/Optimized-Runtimes
 RUNTIME_URL ?= https://github.com/$(RUNTIME_REPOSITORY)/releases/download/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_DOWNLOAD := $(ROOT)/downloads/runtime/$(RUNTIME_RELEASE)/$(RUNTIME_ARCHIVE)
 RUNTIME_CHECKSUM := $(RUNTIME_DOWNLOAD).sha256
@@ -60,6 +60,8 @@ endif
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
+# TODO: Fetch and use the pinned coco-128-by-sa revision by default once the
+# dataset is public.
 DATA ?= coco128.yaml
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 # Evidence is immutable, so each default invocation needs a fresh directory.
