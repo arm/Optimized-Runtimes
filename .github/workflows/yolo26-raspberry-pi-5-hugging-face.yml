@@ -1,0 +1,54 @@
+# Mirror each qualified GitHub release to the model's Hugging Face repository.
+name: Mirror YOLO26n Raspberry Pi 5 release to Hugging Face
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hugging-face-yolo26-raspberry-pi-5
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: >-
+      ${{ github.event.release.prerelease == false &&
+          startsWith(github.event.release.tag_name, 'yolo26-raspberry-pi-5-v') }}
+    name: Mirror release
+    runs-on: ubuntu-24.04
+    env:
+      PROJECT_DIR: yolo26-raspberry-pi-5
+    steps:
+      - name: Check out the released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Include the repository license
+        run: |
+          install --mode 0644 LICENSE "$PROJECT_DIR/LICENSE"
+
+      - name: Mirror the release to Hugging Face
+        uses: huggingface/hub-sync@fdffea8e04104d0bd4e3181c5feb3025f0433ff5 # v0.3.0
+        with:
+          github_repo_id: ${{ github.repository }}
+          huggingface_repo_id: Arm/Arm-Runtime-for-YOLO26-on-Raspberry-Pi-5
+          hf_token: ${{ secrets.HF_TOKEN }}
+          repo_type: model
+          subdirectory: ${{ env.PROJECT_DIR }}
+          delete_removed: true
+          # Pin the CLI version that is used.
+          hf_version: 1.31.0
+          # The clean checkout contains only tracked files. These patterns are
+          # a final safeguard for model artifacts that must never be mirrored.
+          exclude: |
+            *.pt
+            *.pth
+            *.safetensors
+            model.bin
+            */model.bin
