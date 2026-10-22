@@ -1,7 +1,7 @@
 version: 1.2.0
 report_type: vision-detection
 profile: Arm-Optimized
-created_at: '2026-10-20T17:58:48Z'
+created_at: '2026-10-22T18:34:09Z'
 context:
   target_ref: raspberry-pi-5-8gb
   runtime:
@@ -14,10 +14,10 @@ context:
       - XNNPACK
   dataset:
     name: COCO 128 BY/SA
-    version: e7a3ecd065a304caddd2f170b8d41aeda66735b5
+    version: 97d6ea181e9dd0784db880b705e426ad23d424e1
     slice: all
     sample_count: 128
-    reference_url: https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/e7a3ecd065a304caddd2f170b8d41aeda66735b5
+    reference_url: https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/97d6ea181e9dd0784db880b705e426ad23d424e1
   benchmark:
     batch_size: 1
     input_resolution: 640x640
@@ -25,6 +25,6 @@ context:
     warmup_runs: 0
 accuracy:
   sub_task: coco_map
-  mAP_50_95_pct: 48.6615
-  mAP_50_pct: 65.8740
-  mAP_75_pct: 52.9025
+  mAP_50_95_pct: 48.6264
+  mAP_50_pct: 65.8367
+  mAP_75_pct: 53.0182
