@@ -29,6 +29,7 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 | Ultralytics options | `workers=0 plots=False` |
 | Cache state | Cold; host filesystem caches dropped immediately before the run |
 | Evidence directory | `20261022T232118602909Z-4447eb6` |
+| Recorded | 2026-10-22 23:21 UTC |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
