@@ -70,9 +70,7 @@ FetchContent_Declare(xnnpack
   COMMAND "${PATCH_EXECUTABLE}" --strip=3 --batch --forward
     --input=${CMAKE_CURRENT_SOURCE_DIR}/patches/xnnpack-yolo26-kernels.patch
   COMMAND "${PATCH_EXECUTABLE}" --strip=3 --batch --forward
-    --input=${CMAKE_CURRENT_SOURCE_DIR}/patches/xnnpack-rpi5-bti-diagnostic.patch
-  COMMAND "${PATCH_EXECUTABLE}" --strip=3 --batch --forward
-    --input=${CMAKE_CURRENT_SOURCE_DIR}/patches/xnnpack-rpi5-workspace-alignment.patch)
+    --input=${CMAKE_CURRENT_SOURCE_DIR}/patches/xnnpack-rpi5-bti-diagnostic.patch)
 FetchContent_MakeAvailable(cpuinfo fxdiv pthreadpool xnnpack)
 
 # Raspberry Pi 5 XNNPACK configuration
