@@ -1,7 +1,7 @@
 version: 1.2.0
 report_type: vision-detection
 profile: Arm-Optimized
-created_at: '2026-10-22T18:33:34Z'
+created_at: '2026-10-22T21:59:43Z'
 context:
   target_ref: raspberry-pi-5-8gb
   runtime:

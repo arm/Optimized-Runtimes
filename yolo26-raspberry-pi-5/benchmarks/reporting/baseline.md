@@ -13,7 +13,7 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 
 | Item | Value |
 | --- | --- |
-| Source revision | `3d0f4123b5546a58aca9dfbd80534c1125d0a647` |
+| Source revision | `80b3745408fb3cfb4347a1fd72874708d3a6b8ae` |
 | Runtime library SHA-256 | `6b9978243ed1fd325e5b7b6a2bc616280862ed01edc1f653ee55b088658b60b2` |
 | Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
 | Dataset | `coco-128-by-sa` |
@@ -28,7 +28,7 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 | Ultralytics | 8.4.108 |
 | Ultralytics options | `workers=0 plots=False` |
 | Cache state | Cold; host filesystem caches dropped immediately before the run |
-| Evidence directory | `20261022T-rebaseline-official-coco-cold1` |
+| Evidence directory | `20261022T215920273680359Z-80b3745408fb` |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
@@ -44,9 +44,9 @@ writing validation plots; it does not change detector scoring.
 | mAP50 | 0.6584 |
 | mAP75 | 0.5302 |
 | mAP50-95 | 0.4863 |
-| Preprocess | 2.3 ms/image |
-| Inference | 38.3 ms/image |
-| Postprocess | 3.8 ms/image |
+| Preprocess | 2.2 ms/image |
+| Inference | 38.2 ms/image |
+| Postprocess | 3.6 ms/image |
 
 ## Host context
 
@@ -56,10 +56,10 @@ policy remained on the `performance` governor at 2.4 GHz.
 
 The host filesystem caches were dropped immediately before the benchmark.
 For the recorded Arm Runtime run, cached and reclaimable data totaled 0.71 GiB
-at the initial observation and 1.00 GiB afterward. Cold reads caused 1,097
+at the initial observation and 1.02 GiB afterward. Cold reads caused 1,280
 major page faults; swap input and output did not change during the run.
 
-The CPU temperature increased from 46.9 °C to 51.3 °C. The firmware reported
+The CPU temperature increased from 49.1 °C to 53.5 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
-memory decreased from 6.90 GiB to 6.87 GiB, and peak benchmark-process-tree RSS
+memory decreased from 6.92 GiB to 6.87 GiB, and peak benchmark-process-tree RSS
 was 445 MiB.
