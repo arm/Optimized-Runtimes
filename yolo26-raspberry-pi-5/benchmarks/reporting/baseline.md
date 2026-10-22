@@ -27,9 +27,8 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 | COCO annotations SHA-256 | `009ef7e4cd3b533774d8755dbf8a3aa788d5af401b8283e87e27b2cad58cda57` |
 | Ultralytics | 8.4.108 |
 | Ultralytics options | `workers=0 plots=False` |
-| Cache state | Cold; host filesystem caches dropped immediately before each run |
-| Evidence directories | `20261022T-rebaseline-official-coco-cold1`, `20261022T-rebaseline-official-coco-cold2`, and `20261022T-rebaseline-official-coco-cold3` |
-| Recorded | 2026-10-22 18:33–18:34 UTC |
+| Cache state | Cold; host filesystem caches dropped immediately before the run |
+| Evidence directory | `20261022T-rebaseline-official-coco-cold1` |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
@@ -55,12 +54,12 @@ The measurement ran on a Raspberry Pi 5 Model B Rev 1.1 with Linux
 6.12.75+rpt-rpi-2712. All four cores were available, and the CPU frequency
 policy remained on the `performance` governor at 2.4 GHz.
 
-The host filesystem caches were dropped immediately before each benchmark.
-For the median Arm Runtime run, cached and reclaimable data totaled 0.71 GiB
-at the initial observation and 1.02 GiB afterward. Cold reads caused 1,289
+The host filesystem caches were dropped immediately before the benchmark.
+For the recorded Arm Runtime run, cached and reclaimable data totaled 0.71 GiB
+at the initial observation and 1.00 GiB afterward. Cold reads caused 1,097
 major page faults; swap input and output did not change during the run.
 
-The CPU temperature increased from 48.5 °C to 52.4 °C. The firmware reported
+The CPU temperature increased from 46.9 °C to 51.3 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
-memory decreased from 6.93 GiB to 6.87 GiB, and peak benchmark-process-tree RSS
-was 444 MiB.
+memory decreased from 6.90 GiB to 6.87 GiB, and peak benchmark-process-tree RSS
+was 445 MiB.
