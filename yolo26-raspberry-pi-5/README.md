@@ -24,19 +24,19 @@ variants at square resolutions of 320, 480, 640, 800, 960, and 1280 pixels.
 ## Performance
 
 The following YOLO26n results were measured on Raspberry Pi 5 at 640x640,
-batch 1, against the 128-image, 1,050-instance
-[`coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/e7a3ecd065a304caddd2f170b8d41aeda66735b5)
-dataset revision selected for publication. Inference time excludes
+batch 1, against the 128-image, 1,025-instance
+[`coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa/tree/97d6ea181e9dd0784db880b705e426ad23d424e1)
+published dataset revision. Inference time excludes
 preprocessing and postprocessing.
 
 | Runtime | Inference (ms/image) | mAP50-95 |
 | --- | ---: | ---: |
-| Arm Runtime (this project) | 36.80 | 0.4866 |
-| NCNN | 66.23 | 0.4899 |
-| MNN | 90.38 | 0.4711 |
-| OpenVINO | 102.56 | 0.4787 |
-| ONNX Runtime | 127.29 | 0.4787 |
-| ExecuTorch | 137.90 | 0.4893 |
+| Arm Runtime (this project) | 36.60 | 0.4863 |
+| NCNN | 67.20 | 0.4902 |
+| MNN | 90.90 | 0.4753 |
+| OpenVINO | 102.00 | 0.4812 |
+| ONNX Runtime | 126.90 | 0.4812 |
+| ExecuTorch | 136.90 | 0.4880 |
 
 See the [performance baseline](benchmarks/reporting/baseline.md) for the Arm
 Runtime measurement and host context.
