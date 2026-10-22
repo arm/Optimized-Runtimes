@@ -31,7 +31,7 @@ preprocessing and postprocessing.
 
 | Runtime | Inference (ms/image) | mAP50-95 |
 | --- | ---: | ---: |
-| Arm Runtime (this project) | 36.50 | 0.4863 |
+| Arm Runtime (this project) | 38.20 | 0.4863 |
 | NCNN | 67.20 | 0.4902 |
 | MNN | 90.90 | 0.4753 |
 | OpenVINO | 102.00 | 0.4812 |

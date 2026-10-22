@@ -13,8 +13,8 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 
 | Item | Value |
 | --- | --- |
-| Source revision | `45f465464e46ec3c4eaecf4e27d94ba58fa4785b` |
-| Runtime library SHA-256 | `de7d84661de189689a9a2ea57aa99fd8bf58b2136474f18d43c4b560cfd44b3f` |
+| Source revision | `80b3745408fb3cfb4347a1fd72874708d3a6b8ae` |
+| Runtime library SHA-256 | `6b9978243ed1fd325e5b7b6a2bc616280862ed01edc1f653ee55b088658b60b2` |
 | Model manifest SHA-256 | `3723a972dc64782fe86577eabde3d02539e10c778ae5ef77b0c5b9bc9f0d1f54` |
 | Dataset | `coco-128-by-sa` |
 | Dataset repository | [Arm/coco-128-by-sa](https://huggingface.co/datasets/Arm/coco-128-by-sa) |
@@ -27,9 +27,8 @@ validation configuration explicitly with `DATA=/path/to/data.yaml`.
 | COCO annotations SHA-256 | `009ef7e4cd3b533774d8755dbf8a3aa788d5af401b8283e87e27b2cad58cda57` |
 | Ultralytics | 8.4.108 |
 | Ultralytics options | `workers=0 plots=False` |
-| Torch thread pools | 1 intra-op, 1 inter-op |
 | Cache state | Cold; host filesystem caches dropped immediately before the run |
-| Evidence directory | `20261022T230525566527197Z-45f465464e46` |
+| Evidence directory | `20261022T215920273680359Z-80b3745408fb` |
 
 `workers=0` keeps Ultralytics dataset loading in the benchmark process instead
 of starting data-loader subprocesses. It does not change the native runtime's
@@ -45,9 +44,9 @@ writing validation plots; it does not change detector scoring.
 | mAP50 | 0.6584 |
 | mAP75 | 0.5302 |
 | mAP50-95 | 0.4863 |
-| Preprocess | 1.9 ms/image |
-| Inference | 36.5 ms/image |
-| Postprocess | 3.9 ms/image |
+| Preprocess | 2.2 ms/image |
+| Inference | 38.2 ms/image |
+| Postprocess | 3.6 ms/image |
 
 ## Host context
 
@@ -56,11 +55,11 @@ The measurement ran on a Raspberry Pi 5 Model B Rev 1.1 with Linux
 policy remained on the `performance` governor at 2.4 GHz.
 
 The host filesystem caches were dropped immediately before the benchmark.
-For the recorded Arm Runtime run, cached and reclaimable data totaled 1.07 GiB
-at the initial observation and 1.35 GiB afterward. Cold reads caused 1,093
+For the recorded Arm Runtime run, cached and reclaimable data totaled 0.71 GiB
+at the initial observation and 1.02 GiB afterward. Cold reads caused 1,280
 major page faults; swap input and output did not change during the run.
 
-The CPU temperature increased from 46.9 °C to 52.4 °C. The firmware reported
+The CPU temperature increased from 49.1 °C to 53.5 °C. The firmware reported
 no current or historical throttling flags before or after the run. Available
-memory decreased from 6.51 GiB to 6.50 GiB, and peak benchmark-process-tree RSS
-was 446 MiB.
+memory decreased from 6.92 GiB to 6.87 GiB, and peak benchmark-process-tree RSS
+was 445 MiB.
