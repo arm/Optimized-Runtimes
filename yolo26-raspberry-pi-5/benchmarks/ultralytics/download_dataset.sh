@@ -43,3 +43,10 @@ curl "${arguments[@]}"
 for path in "${paths[@]}"; do
   mv "$output/$path.part" "$output/$path"
 done
+
+escaped_output=${output//\'/\'\'}
+{
+  printf "path: '%s'\n" "$escaped_output"
+  tail -n +2 "$output/data.yaml"
+} > "$output/benchmark.yaml.part"
+mv "$output/benchmark.yaml.part" "$output/benchmark.yaml"

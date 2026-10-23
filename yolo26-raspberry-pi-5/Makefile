@@ -62,7 +62,7 @@ endif
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
 DATASET_REVISION := 97d6ea181e9dd0784db880b705e426ad23d424e1
 DATASET_DIR := $(ROOT)/downloads/datasets/coco-128-by-sa-$(DATASET_REVISION)
-DATASET_CONFIG := $(DATASET_DIR)/ultralytics.yaml
+DATASET_CONFIG := $(DATASET_DIR)/benchmark.yaml
 DATA ?= $(DATASET_CONFIG)
 ifeq ($(origin DATA), file)
 DATA_REQUIREMENT := $(DATASET_CONFIG)
@@ -359,8 +359,6 @@ $(DATASET_CONFIG): benchmarks/ultralytics/download_dataset.sh
 	@printf 'Downloading coco-128-by-sa dataset revision %s\n' "$(DATASET_REVISION)"
 	./benchmarks/ultralytics/download_dataset.sh \
 	  "$(DATASET_REVISION)" "$(DATASET_DIR)"
-	@python3 -c \
-	  'import json; from pathlib import Path; source = Path("$(DATASET_DIR)/data.yaml"); text = source.read_text(encoding="utf-8"); prefix = "path: .\n"; assert text.startswith(prefix); Path("$@").write_text("path: " + json.dumps(str(source.parent)) + "\n" + text.removeprefix(prefix), encoding="utf-8")'
 
 .PHONY: ultralytics-benchmark
 ultralytics-benchmark: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
