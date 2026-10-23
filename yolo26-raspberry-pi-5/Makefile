@@ -197,13 +197,7 @@ runtime: runtime-configure
 
 # Release packaging
 .PHONY: release
-# Use the repository's locked development environment by default. A caller
-# that supplies PYTHON is responsible for preparing that Python environment.
-ifeq ($(origin PYTHON), file)
-release: PYTHON := $(DEV_VENV)/bin/python
-RELEASE_ENVIRONMENT := _dev
-endif
-release: runtime $(RELEASE_ENVIRONMENT) _release-converter _release-api
+release: runtime _release-converter _release-api
 	@# The runtime archive combines CMake's installed runtime with both wheels.
 	@# The development archive contains CMake's header and linker name. A staging
 	@# directory keeps those layouts separate and makes publication into
@@ -238,7 +232,7 @@ release: runtime $(RELEASE_ENVIRONMENT) _release-converter _release-api
 # dependencies; callers provide the hash-locked build environment defined by
 # requirements-build.txt. CI installs that environment with --require-hashes.
 .PHONY: _release-converter
-_release-converter:
+_release-converter: _dev
 	mkdir -p "$(PACKAGE_DIST)"
 	@# Give setuptools a self-contained project without writing build state into
 	@# the converter source directory or duplicating the repository version.
@@ -247,13 +241,13 @@ _release-converter:
 	  cp src/converter/*.py src/converter/pyproject.toml \
 	    src/converter/VERSION "$$staging/"; \
 	  install --mode 0644 "$(ROOT)/../LICENSE" "$$staging/LICENSE"; \
-	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	  PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
 .PHONY: _release-api
-_release-api:
+_release-api: _dev
 	mkdir -p "$(PACKAGE_DIST)"
-	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
