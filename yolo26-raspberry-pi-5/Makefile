@@ -197,6 +197,9 @@ runtime: runtime-configure
 
 # Release packaging
 .PHONY: release
+# Use the repository's locked development environment when PYTHON still has
+# its Makefile default. A caller-supplied PYTHON, such as a CI environment,
+# bypasses both this reassignment and the _dev preparation prerequisite.
 ifeq ($(origin PYTHON), file)
 release: PYTHON := $(DEV_VENV)/bin/python
 RELEASE_ENVIRONMENT := _dev
