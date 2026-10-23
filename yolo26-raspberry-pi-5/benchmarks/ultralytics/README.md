@@ -7,6 +7,7 @@ runtimes.
 ## Usage
 
 Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
+Install the [project prerequisites](../../README.md#prerequisites) first.
 
 Run the benchmark:
 

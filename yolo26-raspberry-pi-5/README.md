@@ -53,7 +53,10 @@ sudo apt install --yes --no-install-recommends \
   ca-certificates \
   curl \
   git \
+  libgl1 \
+  libglib2.0-0t64 \
   make \
+  patch \
   python3 \
   python3-venv \
   tar \
@@ -106,6 +109,7 @@ sudo apt install --yes --no-install-recommends \
   build-essential \
   ca-certificates \
   cmake \
+  curl \
   git \
   patch \
   python3 \

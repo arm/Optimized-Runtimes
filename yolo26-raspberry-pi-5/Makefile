@@ -10,6 +10,10 @@ LOCK_COMPILER ?= pip-compile
 TEST_PYTHONPATH := $(ROOT)/src:$(ROOT)/src/runtime/api/python:$(ROOT)
 VERSION := $(strip $(file <$(ROOT)/VERSION))
 
+# Release packaging
+BUILD_VENV ?= $(ROOT)/build/release-venv
+BUILD_PYTHON := $(BUILD_VENV)/bin/python
+
 # Checkpoint conversion
 DEFAULT_CHECKPOINT := $(ROOT)/downloads/checkpoints/yolo26n.pt
 CHECKPOINT ?= $(DEFAULT_CHECKPOINT)
@@ -196,8 +200,21 @@ runtime: runtime-configure
 	cmake --install "$(RUNTIME_BUILD)" --prefix "$(RUNTIME_DIST)" --component runtime
 
 # Release packaging
+.PHONY: _build
+_build: $(BUILD_VENV)/pyvenv.cfg
+
+$(BUILD_VENV)/pyvenv.cfg: requirements-build.txt
+	@cmake -E remove_directory "$(BUILD_VENV)"
+	python3 -m venv "$(BUILD_VENV)"
+	PIP_CONFIG_FILE=/dev/null "$(BUILD_PYTHON)" -m pip install --require-hashes \
+	  --requirement requirements-build.txt
+
 .PHONY: release
-release: runtime _release-converter _release-api
+ifeq ($(origin PYTHON), file)
+release: PYTHON := $(BUILD_PYTHON)
+RELEASE_ENVIRONMENT := _build
+endif
+release: runtime $(RELEASE_ENVIRONMENT) _release-converter _release-api
 	@# The runtime archive combines CMake's installed runtime with both wheels.
 	@# The development archive contains CMake's header and linker name. A staging
 	@# directory keeps those layouts separate and makes publication into
@@ -239,7 +256,8 @@ _release-converter:
 	@staging="$$(mktemp -d)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
 	  cp src/converter/*.py src/converter/pyproject.toml \
-	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
+	    src/converter/VERSION "$$staging/"; \
+	  install --mode 0644 "$(ROOT)/../LICENSE" "$$staging/LICENSE"; \
 	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
 	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
