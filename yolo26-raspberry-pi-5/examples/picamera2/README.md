@@ -36,6 +36,14 @@ Confirm camera access:
 rpicam-hello --list-cameras
 ```
 
+For a graphical preview, also install the Qt and OpenGL Python bindings:
+
+```bash
+sudo apt install --yes --no-install-recommends \
+  python3-opengl \
+  python3-pyqt5
+```
+
 To use your own compatible model, see [Acquiring a model](../../README.md#acquiring-a-model).
 Otherwise, the pinned standard YOLO26n checkpoint is downloaded and converted
 automatically.

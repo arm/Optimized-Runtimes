@@ -232,21 +232,22 @@ release: runtime _release-converter _release-api
 # dependencies; callers provide the hash-locked build environment defined by
 # requirements-build.txt. CI installs that environment with --require-hashes.
 .PHONY: _release-converter
-_release-converter:
+_release-converter: _dev
 	mkdir -p "$(PACKAGE_DIST)"
 	@# Give setuptools a self-contained project without writing build state into
 	@# the converter source directory or duplicating the repository version.
 	@staging="$$(mktemp -d)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
 	  cp src/converter/*.py src/converter/pyproject.toml \
-	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
-	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	    src/converter/VERSION "$$staging/"; \
+	  install --mode 0644 "$(ROOT)/../LICENSE" "$$staging/LICENSE"; \
+	  PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
 .PHONY: _release-api
-_release-api:
+_release-api: _dev
 	mkdir -p "$(PACKAGE_DIST)"
-	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
