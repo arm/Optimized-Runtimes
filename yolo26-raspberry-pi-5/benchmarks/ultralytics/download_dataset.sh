@@ -12,14 +12,7 @@ curl --fail --location --retry 3 --silent --show-error \
 mv "$output/$manifest.part" "$output/$manifest"
 
 paths=(
-  README.md
-  LICENSES/CC-BY-2.0-NOTICE.md
-  LICENSES/CC-BY-SA-2.0-NOTICE.md
-  LICENSES/COCO-ANNOTATIONS-CC-BY-4.0-NOTICE.md
-  annotations/instances_train2017.json
   data.yaml
-  selection.json
-  verify_attribution.py
 )
 
 while IFS=, read -r image_id file_name relative_path _; do
