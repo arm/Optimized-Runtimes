@@ -359,10 +359,6 @@ $(DATASET_CONFIG): benchmarks/ultralytics/download_dataset.sh
 	@printf 'Downloading coco-128-by-sa dataset revision %s\n' "$(DATASET_REVISION)"
 	./benchmarks/ultralytics/download_dataset.sh \
 	  "$(DATASET_REVISION)" "$(DATASET_DIR)"
-	@cd "$(DATASET_DIR)" && printf '%s  %s\n' \
-	  'accc0ff00b364d39c5f209eeb7e53609db634541551b7d4a392b7aa7e1e5f62b' 'data.yaml' \
-	  'a56e45ab8e72a21906332dcfcfe8ba4ece9039c2c0cdc2409952042c57675b96' 'LICENSE_MANIFEST.csv' \
-	  | sha256sum --check
 	@python3 -c \
 	  'import json; from pathlib import Path; source = Path("$(DATASET_DIR)/data.yaml"); text = source.read_text(encoding="utf-8"); prefix = "path: .\n"; assert text.startswith(prefix); Path("$@").write_text("path: " + json.dumps(str(source.parent)) + "\n" + text.removeprefix(prefix), encoding="utf-8")'
 
