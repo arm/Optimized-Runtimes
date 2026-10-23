@@ -6,8 +6,8 @@ changes must use the same dataset and validation configuration before comparing
 their results with this measurement.
 
 The measurement uses the published Hugging Face dataset revision identified
-below. Benchmark operators must download that revision and supply its local
-validation configuration explicitly with `DATA=/path/to/data.yaml`.
+below. The default benchmark target downloads and uses that pinned revision
+automatically.
 
 ## Measurement
 
