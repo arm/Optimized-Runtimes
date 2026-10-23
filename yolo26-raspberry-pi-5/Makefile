@@ -60,9 +60,14 @@ endif
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
-# TODO: Fetch and use the pinned coco-128-by-sa revision by default once the
-# dataset is public.
-DATA ?= coco128.yaml
+DATASET_REVISION := 97d6ea181e9dd0784db880b705e426ad23d424e1
+DATASET_DIR := $(ROOT)/downloads/datasets/coco-128-by-sa-$(DATASET_REVISION)
+DATASET_CONFIG := $(DATASET_DIR)/ultralytics.yaml
+DATASET_COMPLETE := $(DATASET_DIR)/.complete
+DATA ?= $(DATASET_CONFIG)
+ifeq ($(origin DATA), file)
+DATA_REQUIREMENT := $(DATASET_COMPLETE)
+endif
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 # Evidence is immutable, so each default invocation needs a fresh directory.
 BENCHMARK_RUN_ID := $(shell date -u +%Y%m%dT%H%M%S%NZ)-$(shell printf '%.12s' "$(SOURCE_REVISION)")
@@ -351,9 +356,23 @@ $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
+$(DATASET_COMPLETE): $(ULTRALYTICS_VENV)/pyvenv.cfg
+	@printf 'Downloading coco-128-by-sa dataset revision %s\n' "$(DATASET_REVISION)"
+	"$(ULTRALYTICS_VENV)/bin/python" -c \
+	  'from huggingface_hub import snapshot_download; snapshot_download(repo_id="Arm/coco-128-by-sa", repo_type="dataset", revision="$(DATASET_REVISION)", local_dir="$(DATASET_DIR)")'
+	@cd "$(DATASET_DIR)" && printf '%s  %s\n' \
+	  'accc0ff00b364d39c5f209eeb7e53609db634541551b7d4a392b7aa7e1e5f62b' 'data.yaml' \
+	  '18205722c822b59635d4b6c911cef4495b5d688b4b23d84fde6d4e4396cec61f' 'selection.json' \
+	  'a56e45ab8e72a21906332dcfcfe8ba4ece9039c2c0cdc2409952042c57675b96' 'LICENSE_MANIFEST.csv' \
+	  '009ef7e4cd3b533774d8755dbf8a3aa788d5af401b8283e87e27b2cad58cda57' 'annotations/instances_train2017.json' \
+	  | sha256sum --check
+	@"$(ULTRALYTICS_VENV)/bin/python" -c \
+	  'import json; from pathlib import Path; source = Path("$(DATASET_DIR)/data.yaml"); text = source.read_text(encoding="utf-8"); prefix = "path: .\n"; assert text.startswith(prefix); Path("$(DATASET_CONFIG)").write_text("path: " + json.dumps(str(source.parent)) + "\n" + text.removeprefix(prefix), encoding="utf-8")'
+	@touch "$@"
+
 .PHONY: ultralytics-benchmark
 ultralytics-benchmark: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
-    $(ULTRALYTICS_VENV)/pyvenv.cfg
+    $(ULTRALYTICS_VENV)/pyvenv.cfg $(DATA_REQUIREMENT)
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \

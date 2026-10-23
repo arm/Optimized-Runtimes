@@ -15,8 +15,11 @@ Run the benchmark:
 make ultralytics-benchmark
 ```
 
-The target prepares any missing default runtime, converted model, and pinned
-benchmark environment.
+The target prepares any missing default runtime, converted model, pinned
+benchmark environment, and pinned revision of the public
+[`Arm/coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa)
+dataset. The dataset download does not require Hugging Face authentication or
+the Hugging Face CLI.
 
 Select another Ultralytics dataset configuration with `DATA`:
 
