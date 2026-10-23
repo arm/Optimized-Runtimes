@@ -37,18 +37,12 @@ jobs:
           persist-credentials: false
       - name: Configure container workspace ownership
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Install development dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          python3 -m venv build/ci/venv
-          PIP_CONFIG_FILE=/dev/null build/ci/venv/bin/python -m pip install --require-hashes \
-            --requirement requirements-dev.txt
       - name: Lint
         working-directory: ${{ env.PROJECT_DIR }}
-        run: make lint PYTHON=build/ci/venv/bin/python CLANG_FORMAT=build/ci/venv/bin/clang-format
+        run: make lint
       - name: Unit tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: make test-unit PYTHON=build/ci/venv/bin/python
+        run: make test-unit
       - name: Download supported converter fixture
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -61,7 +55,6 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           make model-check \
-            PYTHON=build/ci/venv/bin/python \
             CHECKPOINT=build/ci/yolo26n.pt \
             RESOLUTION=640
       - name: Export supported models
@@ -69,7 +62,6 @@ jobs:
         run: |
           for resolution in 320 480 640 800 960 1280; do
             make model \
-              PYTHON=build/ci/venv/bin/python \
               CHECKPOINT=build/ci/yolo26n.pt \
               RESOLUTION="$resolution"
           done
@@ -77,7 +69,6 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           make test-end-to-end release \
-            PYTHON=build/ci/venv/bin/python \
             CHECKPOINT=build/ci/yolo26n.pt \
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
       - name: Retain main build packages
