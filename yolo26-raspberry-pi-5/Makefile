@@ -63,10 +63,9 @@ ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
 DATASET_REVISION := 97d6ea181e9dd0784db880b705e426ad23d424e1
 DATASET_DIR := $(ROOT)/downloads/datasets/coco-128-by-sa-$(DATASET_REVISION)
 DATASET_CONFIG := $(DATASET_DIR)/ultralytics.yaml
-DATASET_COMPLETE := $(DATASET_DIR)/.complete
 DATA ?= $(DATASET_CONFIG)
 ifeq ($(origin DATA), file)
-DATA_REQUIREMENT := $(DATASET_COMPLETE)
+DATA_REQUIREMENT := $(DATASET_CONFIG)
 endif
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 # Evidence is immutable, so each default invocation needs a fresh directory.
@@ -356,7 +355,7 @@ $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
-$(DATASET_COMPLETE): benchmarks/ultralytics/download_dataset.sh
+$(DATASET_CONFIG): benchmarks/ultralytics/download_dataset.sh
 	@printf 'Downloading coco-128-by-sa dataset revision %s\n' "$(DATASET_REVISION)"
 	./benchmarks/ultralytics/download_dataset.sh \
 	  "$(DATASET_REVISION)" "$(DATASET_DIR)"
@@ -365,8 +364,7 @@ $(DATASET_COMPLETE): benchmarks/ultralytics/download_dataset.sh
 	  'a56e45ab8e72a21906332dcfcfe8ba4ece9039c2c0cdc2409952042c57675b96' 'LICENSE_MANIFEST.csv' \
 	  | sha256sum --check
 	@python3 -c \
-	  'import json; from pathlib import Path; source = Path("$(DATASET_DIR)/data.yaml"); text = source.read_text(encoding="utf-8"); prefix = "path: .\n"; assert text.startswith(prefix); Path("$(DATASET_CONFIG)").write_text("path: " + json.dumps(str(source.parent)) + "\n" + text.removeprefix(prefix), encoding="utf-8")'
-	@touch "$@"
+	  'import json; from pathlib import Path; source = Path("$(DATASET_DIR)/data.yaml"); text = source.read_text(encoding="utf-8"); prefix = "path: .\n"; assert text.startswith(prefix); Path("$@").write_text("path: " + json.dumps(str(source.parent)) + "\n" + text.removeprefix(prefix), encoding="utf-8")'
 
 .PHONY: ultralytics-benchmark
 ultralytics-benchmark: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
