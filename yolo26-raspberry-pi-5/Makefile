@@ -280,26 +280,17 @@ $(DEFAULT_CHECKPOINT):
 # A source build and a release download establish the same runtime path. Attach
 # the download rules only when no usable source-built distribution is present.
 ifneq ($(shell test -f "$(DEFAULT_RUNTIME)" && printf present),present)
-# Public releases use curl without requiring GitHub tooling. The authenticated
-# gh fallback keeps maintainer testing usable while the repository is internal.
+# Release assets are downloaded anonymously from the public GitHub repository.
 $(RUNTIME_DOWNLOAD):
 	mkdir -p "$(@D)"
 	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
-	@curl --fail --location --silent --show-error "$(RUNTIME_URL)" --output "$@.tmp" || { \
-	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
-	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
-	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
-	}
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL)" --output "$@.tmp"
 	mv "$@.tmp" "$@"
 
 $(RUNTIME_CHECKSUM):
 	mkdir -p "$(@D)"
 	@printf 'Downloading runtime release asset: %s\n' "$(notdir $@)"
-	@curl --fail --location --silent --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp" || { \
-	  printf 'Anonymous release download unavailable; trying authenticated gh.\n'; \
-	  gh release download "$(RUNTIME_RELEASE)" --repo "$(RUNTIME_REPOSITORY)" \
-	    --pattern "$(notdir $@)" --output "$@.tmp" --clobber; \
-	}
+	@curl --fail --location --silent --show-error "$(RUNTIME_URL).sha256" --output "$@.tmp"
 	mv "$@.tmp" "$@"
 
 $(DEFAULT_RUNTIME): $(RUNTIME_DOWNLOAD) $(RUNTIME_CHECKSUM)
