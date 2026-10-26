@@ -211,9 +211,9 @@ coverage==7.16.1 \
     --hash=sha256:fd8ac10cd2458b3c6343aac082fb9bd0e3fa806cb2c4975f2280153474b88412 \
     --hash=sha256:fdb2f528b50953e29d22033b3256c396a700193c6e45b2490222ef9c333cbbf9
     # via -r requirements-dev.in
-gcovr==8.6 \
-    --hash=sha256:b2e7042abca9321cadbab8a06eb34d19f801b831557b28cdc30a029313de8b9e \
-    --hash=sha256:dbf9d87c38042752ad6f530aa8210427e22b526611bb7b7bfed0e81977d1f1ef
+gcovr==8.7 \
+    --hash=sha256:2a68612c5981c388537f2e236c231a5d788b8bd9e406d13ced662c97b17e9784 \
+    --hash=sha256:cfb9b2c373cc5be4b1cbe53250a5e4446fe6d4723c6900d3f41aa83540c8ddc8
     # via -r requirements-dev.in
 grimp==3.17 \
     --hash=sha256:0100ff6f08067c8eb8a77dd1433af5e173aea8dbf6a6b76f5372a3b49f2e0a43 \
