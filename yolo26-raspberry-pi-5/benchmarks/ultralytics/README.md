@@ -7,6 +7,7 @@ runtimes.
 ## Usage
 
 Run these commands from the `yolo26-raspberry-pi-5/` runtime directory.
+Install the [project prerequisites](../../README.md#prerequisites) first.
 
 Run the benchmark:
 
@@ -14,8 +15,10 @@ Run the benchmark:
 make ultralytics-benchmark
 ```
 
-The target prepares any missing default runtime, converted model, and pinned
-benchmark environment.
+The target prepares any missing default runtime, converted model, pinned
+benchmark environment, and pinned revision of the public
+[`Arm/coco-128-by-sa`](https://huggingface.co/datasets/Arm/coco-128-by-sa)
+dataset.
 
 Select another Ultralytics dataset configuration with `DATA`:
 

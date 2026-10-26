@@ -2,10 +2,9 @@
 
 ## Supported versions
 
-This project has not published a release. Security fixes are made only on the
-current default branch; older commits and development branches are not
-supported independently. This section will name supported release series once
-the project begins publishing versions.
+Security fixes are provided for the current default branch and the latest
+published release of each runtime. Older releases and development branches are
+not supported independently.
 
 ## Reporting a vulnerability
 

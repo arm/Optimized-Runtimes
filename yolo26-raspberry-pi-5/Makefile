@@ -60,9 +60,13 @@ endif
 
 # Ultralytics benchmark
 ULTRALYTICS_VENV ?= $(ROOT)/benchmarks/ultralytics/.venv
-# TODO: Fetch and use the pinned coco-128-by-sa revision by default once the
-# dataset is public.
-DATA ?= coco128.yaml
+DATASET_REVISION := 97d6ea181e9dd0784db880b705e426ad23d424e1
+DATASET_DIR := $(ROOT)/downloads/datasets/coco-128-by-sa-$(DATASET_REVISION)
+DATASET_CONFIG := $(DATASET_DIR)/benchmark.yaml
+DATA ?= $(DATASET_CONFIG)
+ifeq ($(origin DATA), file)
+DATA_REQUIREMENT := $(DATASET_CONFIG)
+endif
 SOURCE_REVISION ?= $(shell git rev-parse HEAD)
 # Evidence is immutable, so each default invocation needs a fresh directory.
 BENCHMARK_RUN_ID := $(shell date -u +%Y%m%dT%H%M%S%NZ)-$(shell printf '%.12s' "$(SOURCE_REVISION)")
@@ -232,21 +236,22 @@ release: runtime _release-converter _release-api
 # dependencies; callers provide the hash-locked build environment defined by
 # requirements-build.txt. CI installs that environment with --require-hashes.
 .PHONY: _release-converter
-_release-converter:
+_release-converter: _dev
 	mkdir -p "$(PACKAGE_DIST)"
 	@# Give setuptools a self-contained project without writing build state into
 	@# the converter source directory or duplicating the repository version.
 	@staging="$$(mktemp -d)"; \
 	  trap 'rm -rf -- "$$staging"' EXIT; \
 	  cp src/converter/*.py src/converter/pyproject.toml \
-	    src/converter/VERSION src/converter/LICENSE "$$staging/"; \
-	  PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	    src/converter/VERSION "$$staging/"; \
+	  install --mode 0644 "$(ROOT)/../LICENSE" "$$staging/LICENSE"; \
+	  PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	    --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" "$$staging"
 
 .PHONY: _release-api
-_release-api:
+_release-api: _dev
 	mkdir -p "$(PACKAGE_DIST)"
-	PIP_CONFIG_FILE=/dev/null "$(PYTHON)" -m pip wheel \
+	PIP_CONFIG_FILE=/dev/null "$(DEV_VENV)/bin/python" -m pip wheel \
 	  --no-deps --no-build-isolation --wheel-dir "$(PACKAGE_DIST)" .
 
 # Examples
@@ -350,9 +355,14 @@ $(ULTRALYTICS_VENV)/pyvenv.cfg: benchmarks/ultralytics/patch.sh \
     $(wildcard src/runtime/api/python/arm_yolo26n/*.py)
 	./benchmarks/ultralytics/patch.sh "$(ULTRALYTICS_VENV)"
 
+$(DATASET_CONFIG): benchmarks/ultralytics/download_dataset.sh
+	@printf 'Downloading coco-128-by-sa dataset revision %s\n' "$(DATASET_REVISION)"
+	./benchmarks/ultralytics/download_dataset.sh \
+	  "$(DATASET_REVISION)" "$(DATASET_DIR)"
+
 .PHONY: ultralytics-benchmark
 ultralytics-benchmark: $(RUNTIME) $(MODEL)/manifest.json $(MODEL)/model.bin \
-    $(ULTRALYTICS_VENV)/pyvenv.cfg
+    $(ULTRALYTICS_VENV)/pyvenv.cfg $(DATA_REQUIREMENT)
 	"$(PYTHON)" -m benchmarks.ultralytics.benchmark \
 	  --runtime "$(RUNTIME)" \
 	  --model "$(MODEL)" \
