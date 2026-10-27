@@ -1,9 +1,19 @@
 # Development status
 
-This software is unreleased. Do not preserve backward compatibility unless the
-user explicitly requests it. Prefer the cleanest current design, and remove
-obsolete APIs, configuration, and implementation paths instead of adding
-compatibility shims.
+This software is released as open source on GitHub and will soon have external
+consumers. Treat public APIs, configuration, file formats, CLI behavior, and
+documented semantics as compatibility surfaces.
+
+# Priorities
+
+Decisions are made in this order:
+
+1. **Speed.** Make things as fast as possible. When choosing between designs,
+   pick the one that performs best, and do not accept performance regressions
+   for the sake of convenience, cleanliness, or compatibility.
+2. **Backward compatibility.** Preserve it whenever it can be done without
+   sacrificing speed. Prefer compatible changes (additive APIs, deprecation
+   periods, defaults that keep existing behavior).
 
 # Architectural continuity
 
