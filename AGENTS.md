@@ -8,14 +8,15 @@ documented semantics as compatibility surfaces.
 
 Decisions are made in this order:
 
-1. **Speed.** Make things as fast as possible. When choosing between designs,
-   pick the one that performs best, and do not accept performance regressions
-   for the sake of convenience, cleanliness, or compatibility.
-2. **Backward compatibility.** Preserve it whenever it can be done without
-   sacrificing speed. Prefer compatible changes (additive APIs, deprecation
-   periods, defaults that keep existing behavior).
+1. **Speed and Accuracy** Make things as fast as possible while preserving accuracy.
+   When choosing between designs, pick the one that performs best, and do not accept
+   performance or accuracy regressions for the sake of convenience, cleanliness, or
+   compatibility.
+3. **Backward compatibility.** Preserve it whenever it can be done without
+   sacrificing speed or accuracy. Prefer compatible changes (additive APIs,
+   deprecation periods, defaults that keep existing behavior).
    
-If compatibility can only be preserved at a cost to speed, or a change would
+If compatibility can only be preserved at a cost to speed or accuracy, or a change would
 otherwise break consumers, do not decide alone. Stop and engage the human
 before proceeding, so they can decide on:
 
