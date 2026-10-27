@@ -14,6 +14,18 @@ Decisions are made in this order:
 2. **Backward compatibility.** Preserve it whenever it can be done without
    sacrificing speed. Prefer compatible changes (additive APIs, deprecation
    periods, defaults that keep existing behavior).
+   
+If compatibility can only be preserved at a cost to speed, or a change would
+otherwise break consumers, do not decide alone. Stop and engage the human
+before proceeding, so they can decide on:
+
+- the correct version bump (following the project's versioning policy);
+- the deprecation or migration path; and
+- how the change is communicated to consumers (changelog, release notes,
+  migration guide).
+
+Do not remove or rename public APIs, configuration, or behavior, and do not
+add compatibility shims that slow the hot path, without that agreement.
 
 # Architectural continuity
 
