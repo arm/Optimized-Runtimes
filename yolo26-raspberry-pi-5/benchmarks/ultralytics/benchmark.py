@@ -48,6 +48,8 @@ def _yolo_command(
         f"imgsz={resolution}",
         "batch=1",
         "device=cpu",
+        "workers=0",
+        "plots=False",
         *extra_arguments,
     ]
 

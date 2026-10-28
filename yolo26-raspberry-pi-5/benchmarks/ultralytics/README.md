@@ -34,6 +34,15 @@ make ultralytics-benchmark \
   MODEL=/path/to/converted-model
 ```
 
+Validation defaults to `workers=0` (no data-loader subprocesses) and
+`plots=False` (no validation plots). These settings do not change the native
+runtime's four-worker inference configuration. Override either setting through
+`YOLO_ARGS`, for example:
+
+```sh
+make ultralytics-benchmark YOLO_ARGS="workers=2 plots=True"
+```
+
 Each invocation:
 
 1. obtains the default runtime and converts the pinned YOLO26n checkpoint when
