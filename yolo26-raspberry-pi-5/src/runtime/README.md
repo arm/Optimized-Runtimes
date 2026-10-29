@@ -84,6 +84,14 @@ The public input and output buffers contain FP32 values; most intermediate
 tensors use FP16. Callers query exact byte counts from the runtime before
 calling `y26_native_execute`.
 
+`y26_native_execute` returns raw predictions, not final detections. Its output
+has shape `[1, 4 + classes, positions]`; the first four channels contain
+`xywh` boxes and the remaining channels contain per-class scores. Native API
+callers must apply confidence filtering, non-maximum suppression, and any
+required coordinate scaling. The high-level Python `Yolo26Detector` performs
+these steps and returns final detections; the low-level Python
+`Yolo26nTensorSession` exposes the same raw output as the native API.
+
 Concurrent inference requires one instance per caller. A caller must not destroy
 an instance while a call is using it. `y26_native_destroy` releases the
 complete instance.
