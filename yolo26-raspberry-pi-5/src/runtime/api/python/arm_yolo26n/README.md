@@ -32,8 +32,12 @@ with Yolo26nTensorSession(
 ```
 
 Inputs must be contiguous or convertible to contiguous FP32 NCHW arrays with
-the exact shape recorded by the model. Outputs are FP32 NumPy arrays with the
-model's validated YOLO26n output shape.
+the exact shape recorded by the model. Outputs are FP32 NumPy arrays of raw
+predictions with shape `[1, 4 + classes, positions]`. The first four channels
+contain `xywh` boxes and the remaining channels contain per-class scores.
+Callers that need final detections must apply confidence filtering,
+non-maximum suppression, and any required coordinate scaling, or use the
+[high-level detection API](#image-detection).
 
 ## Image detection
 
