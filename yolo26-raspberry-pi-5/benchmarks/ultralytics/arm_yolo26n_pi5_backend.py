@@ -47,6 +47,11 @@ class ArmYolo26nPi5Backend(BaseBackend):
             raise ValueError(f"invalid YOLO26n runtime descriptor: {descriptor_path}")
         model_path = _descriptor_path(model_directory, descriptor.get("model"), "model")
         runtime_path = _descriptor_path(model_directory, descriptor.get("runtime"), "runtime")
+        # The native runtime already occupies all four Pi 5 cores. Keep
+        # Ultralytics' surrounding Torch work from creating a competing
+        # four-thread intra-op pool between inference calls.
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
         LOGGER.info(f"Loading {model_directory} with ArmYolo26nPi5Backend...")
         self.model = Yolo26nTensorSession(runtime=runtime_path, model=model_path)
         height, width = self.model.input_shape[2:]
