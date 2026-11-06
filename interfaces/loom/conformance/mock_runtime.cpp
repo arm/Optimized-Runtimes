@@ -349,6 +349,16 @@ lrt_status bind(lrt_session s,
             return status(LRT_BUFFER_TOO_SMALL);
         auto &other = s->bindings[1 - slot];
         if (other.data) {
+            const char *profile = std::getenv("LRT_MOCK_MEMORY_PROFILE");
+            // These profiles share one external or staged resource between input and output.
+            if (profile &&
+                ((std::strcmp(profile, "single-external") == 0 &&
+                  config->owner == LRT_OWNER_EXTERNAL &&
+                  other.config.owner == LRT_OWNER_EXTERNAL) ||
+                 (std::strcmp(profile, "single-staged") == 0 &&
+                  config->transfer == LRT_TRANSFER_STAGED &&
+                  other.config.transfer == LRT_TRANSFER_STAGED)))
+                return status(LRT_INCOMPATIBLE);
             auto a = reinterpret_cast<uintptr_t>(data), b = reinterpret_cast<uintptr_t>(other.data);
             if (a < b + bytes && b < a + bytes)
                 return status(LRT_INCOMPATIBLE);

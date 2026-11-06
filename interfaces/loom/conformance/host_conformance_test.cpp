@@ -320,7 +320,12 @@ class HostConformance : public testing::Test {
                          nullptr,
                          0};
                 ASSERT_NO_FATAL_FAILURE(allocate_storage(t, method));
-                ASSERT_EQ(rebind(t), LRT_OK);
+                auto result = rebind(t);
+                if (method != Method::Any && result == LRT_INCOMPATIBLE) {
+                    prepared = false;
+                    return;
+                }
+                ASSERT_EQ(result, LRT_OK);
                 bound.push_back(t);
             }
         }
@@ -769,7 +774,10 @@ TEST_F(HostConformance, AdvertisedStagedHostTransfer) {
                 auto replacement = t;
                 replacement.option = &option;
                 ASSERT_NO_FATAL_FAILURE(allocate_storage(replacement, method));
-                ASSERT_EQ(rebind(replacement), LRT_OK);
+                auto result = rebind(replacement);
+                if (result == LRT_INCOMPATIBLE)
+                    GTEST_SKIP() << "Staged options do not form a compatible set";
+                ASSERT_EQ(result, LRT_OK);
                 t = replacement;
                 changed = true;
                 break;
