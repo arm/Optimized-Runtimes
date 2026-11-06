@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "arm_yolo26n.h"
@@ -36,17 +37,17 @@ struct Model {
   const or_tensor_requirement *req_in[1]{}, *req_out[1]{};
   or_tensor_info infos[2]{};
   const or_tensor_info *info_in[1]{}, *info_out[1]{};
-  Model(or_context c, const std::vector<uint8_t>& d) : context(c), data(d) {
+  Model(or_context c, std::vector<uint8_t> d) : context(c), data(std::move(d)) {
     ModelStore store;
-    if (!store.Load(d.data(), d.size())) throw std::runtime_error("Invalid model.bin");
+    if (!store.Load(data.data(), data.size())) throw std::runtime_error("Invalid model.bin");
     const uint64_t r = store.resolution();
-    const uint64_t positions = (r / 8) * (r / 8) + (r / 16) * (r / 16) + (r / 32) * (r / 32);
+    const uint64_t positions = yolo26::DetectionPositions(store.resolution());
     dims[0][0] = 1;
     dims[0][1] = 3;
     dims[0][2] = r;
     dims[0][3] = r;
     dims[1][0] = 1;
-    dims[1][1] = 4 + store.class_count();
+    dims[1][1] = yolo26::kBoxCoordinateChannels + store.class_count();
     dims[1][2] = positions;
     const or_memory_configuration cfg = {OR_OWNER_RUNTIME, OR_ACCESSIBLE_HOST,
                                           OR_REFERENCE_POINTER, OR_TRANSFER_DIRECT};
@@ -214,7 +215,7 @@ or_status load(or_context c, const or_model_source* src, or_model* out) {
       return OR_INVALID_ARGUMENT;
     std::unique_ptr<Model> m;
     try {
-      m = std::make_unique<Model>(c, data);
+      m = std::make_unique<Model>(c, std::move(data));
     } catch (const std::runtime_error&) {
       return OR_INCOMPATIBLE;
     }
