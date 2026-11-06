@@ -190,9 +190,9 @@ runtime-configure:
 
 runtime: runtime-configure
 	cmake --build "$(RUNTIME_BUILD)" \
-	  --target arm_yolo26n yolo26n_runtime_api_test --parallel
+	  --target arm_yolo26n yolo26n_runtime_api_test yolo26n_loom_conformance yolo26n_static_conformance --parallel
 	@if test -f "$(MODEL)/model.bin"; then \
-	  YOLO26N_RUNTIME_API_TEST_MODEL="$(MODEL)/model.bin" \
+	  Y26_LOOM_MODEL="$(MODEL)/model.bin" YOLO26N_RUNTIME_API_TEST_MODEL="$(MODEL)/model.bin" \
 	    ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure; \
 	else \
 	  ctest --test-dir "$(RUNTIME_BUILD)" --output-on-failure; \
@@ -426,9 +426,9 @@ coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	cmake -S src/runtime -B "$(COVERAGE_RUNTIME_BUILD)" \
 	  -DCMAKE_BUILD_TYPE=Debug -DYOLO26N_ENABLE_COVERAGE=ON
 	cmake --build "$(COVERAGE_RUNTIME_BUILD)" \
-	  --target arm_yolo26n yolo26n_runtime_api_test --parallel
-	find "$(COVERAGE_RUNTIME_BUILD)/CMakeFiles/arm_yolo26n.dir" -name '*.gcda' -delete
-	YOLO26N_RUNTIME_API_TEST_MODEL="$(NATIVE_API_TEST_MODEL)" \
+	  --target arm_yolo26n yolo26n_runtime_api_test yolo26n_loom_conformance yolo26n_static_conformance --parallel
+	find "$(COVERAGE_RUNTIME_BUILD)/CMakeFiles/arm_yolo26n_objects.dir" -name '*.gcda' -delete
+	Y26_LOOM_MODEL="$(NATIVE_API_TEST_MODEL)" YOLO26N_RUNTIME_API_TEST_MODEL="$(NATIVE_API_TEST_MODEL)" \
 	  ctest --test-dir "$(COVERAGE_RUNTIME_BUILD)" --output-on-failure
 	@# Run the public Python behavior suites against the instrumented runtime.
 	mkdir -p "$(dir $(PYTHON_COVERAGE_REPORT))" "$(dir $(NATIVE_COVERAGE_REPORT))"
@@ -444,5 +444,5 @@ coverage: _dev $(CHECKPOINT) $(MODEL_ARTIFACTS)
 	"$(PYTHON)" -m coverage xml -o "$(PYTHON_COVERAGE_REPORT)"
 	"$(PYTHON)" -m gcovr --root "$(ROOT)" --filter "$(ROOT)/src/runtime/" \
 	  --exclude-unreachable-branches --exclude-throw-branches \
-	  "$(COVERAGE_RUNTIME_BUILD)/CMakeFiles/arm_yolo26n.dir" \
+	  "$(COVERAGE_RUNTIME_BUILD)/CMakeFiles/arm_yolo26n_objects.dir" \
 	  --txt - --cobertura "$(NATIVE_COVERAGE_REPORT)"

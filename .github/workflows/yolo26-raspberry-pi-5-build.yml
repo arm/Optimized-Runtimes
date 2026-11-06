@@ -71,6 +71,31 @@ jobs:
           make test-end-to-end release \
             CHECKPOINT=build/ci/yolo26n.pt \
             MODELS="$PWD/dist/models/yolo26n-320:$PWD/dist/models/yolo26n-480:$PWD/dist/models/yolo26n-640:$PWD/dist/models/yolo26n-800:$PWD/dist/models/yolo26n-960:$PWD/dist/models/yolo26n-1280"
+      - name: LOOM conformance at every supported resolution
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          for resolution in 320 480 640 800 960 1280; do
+            model="$PWD/dist/models/yolo26n-$resolution/model.bin"
+            test -s "$model"
+            Y26_LOOM_MODEL="$model" build/runtime/yolo26n_loom_conformance
+            Y26_LOOM_MODEL="$model" build/runtime/yolo26n_static_conformance
+          done
+      - name: Alternate-class LOOM conformance
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          python3 tests/make_loom_fixture.py build/ci/three-class.bin
+          Y26_LOOM_MODEL="$PWD/build/ci/three-class.bin" build/runtime/yolo26n_loom_conformance
+          Y26_LOOM_MODEL="$PWD/build/ci/three-class.bin" build/runtime/yolo26n_static_conformance
+      - name: Load the YOLO26n shared library
+        run: |
+          c++ -std=c++11 -I interfaces/loom interfaces/loom/tests/load_libraries.cpp -ldl -o /tmp/loom-load-libraries
+          /tmp/loom-load-libraries \
+            "$PWD/yolo26-raspberry-pi-5/dist/runtime/lib/libarm-yolo26n.so.0"
+      - name: Link the YOLO26n static runtime
+        run: |
+          cmake -S interfaces/loom/tests/static-link -B interfaces/loom/build/static -DCMAKE_BUILD_TYPE=Release
+          cmake --build interfaces/loom/build/static --target loom_static_link --parallel 4
+          ctest --test-dir interfaces/loom/build/static --output-on-failure --no-tests=error
       - name: Retain main build packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
