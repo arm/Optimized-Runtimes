@@ -102,8 +102,9 @@ parent/buffer busy lifetimes, context mismatch, completion failures and reset.
 
 Per-tensor advertised methods need not form a compatible complete combination.
 Optional homogeneous allocation/import/borrow tests skip an incompatible full
-combination. They also skip when a method is not advertised for every fixture
-tensor. Skips are printed by GTest and must be reviewed alongside pass counts.
+combination, whether rejected during binding or complete-set validation. They
+also skip when a method is not advertised for every fixture tensor. Skips are
+printed by GTest and must be reviewed alongside pass counts.
 The provider-selected baseline remains mandatory.
 
 The mock's async gate is a deterministic simulation: the first poll remains
@@ -148,6 +149,10 @@ variables. Additional mock profiles verify that single-session providers pass
 while the parallel-session test skips when its capability is absent. The
 parallel test still requires two independently executable sessions when that
 capability is advertised.
+
+Resource-limited mock profiles allow only one external or staged tensor at a
+time. Their mandatory runtime-allocation baseline must pass, while incompatible
+optional combinations skip even when the second binding rejects them.
 
 STAGED options can require different capacity and alignment from DIRECT options.
 The suite allocates or imports replacement storage for the selected option and

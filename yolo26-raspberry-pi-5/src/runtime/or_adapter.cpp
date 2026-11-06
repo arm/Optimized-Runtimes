@@ -61,10 +61,11 @@ struct Model {
       options[k] = {cfg,
                     k == 0 ? OR_HANDOFF_NONE : OR_HANDOFF_BORROWED,
                     extent,
-                    64,
+                    yolo26::kTensorAlignment,
                     OR_POINTER_RUNTIME_ALLOCATION,
                     nullptr};
-      reqs[k] = {{ranks[k], dims[k]}, 0, extent, 64, strides[k], 1, &options[k]};
+      reqs[k] = {{ranks[k], dims[k]}, 0, extent,     yolo26::kTensorAlignment,
+                 strides[k],          1, &options[k]};
       infos[k] = {k == 0 ? "images" : "predictions",
                   OR_FLOAT32,
                   ranks[k],
@@ -272,7 +273,8 @@ or_status allocate(or_context c, const or_allocation_desc* d, or_buffer* out) {
       return OR_INVALID_ARGUMENT;
     auto b = std::make_unique<Buffer>();
     b->data = nullptr;
-    if (posix_memalign(&b->data, std::max<uint64_t>(64, d->byte_alignment), d->byte_length))
+    if (posix_memalign(&b->data, std::max<uint64_t>(yolo26::kTensorAlignment, d->byte_alignment),
+                       d->byte_length))
       return OR_OUT_OF_MEMORY;
     b->context = c;
     b->bytes = d->byte_length;
@@ -314,7 +316,7 @@ or_status bind(or_session s, or_io io, uint32_t i, const or_tensor_binding* b) {
   if (b->byte_offset > object(buf)->bytes || b->byte_length > object(buf)->bytes - b->byte_offset ||
       b->byte_length < object(object(s)->model)->bytes[k])
     return status(OR_BUFFER_TOO_SMALL);
-  if ((reinterpret_cast<uintptr_t>(object(buf)->data) + b->byte_offset) % 64)
+  if ((reinterpret_cast<uintptr_t>(object(buf)->data) + b->byte_offset) % yolo26::kTensorAlignment)
     return status(OR_INVALID_ARGUMENT);
   if ((k == 0 && !(object(buf)->access & OR_READ)) ||
       (k > 0 && !(object(buf)->access & OR_WRITE)))

@@ -349,6 +349,16 @@ or_status bind(or_session s,
             return status(OR_BUFFER_TOO_SMALL);
         auto &other = s->bindings[1 - slot];
         if (other.data) {
+            const char *profile = std::getenv("OR_MOCK_MEMORY_PROFILE");
+            // These profiles share one external or staged resource between input and output.
+            if (profile &&
+                ((std::strcmp(profile, "single-external") == 0 &&
+                  config->owner == OR_OWNER_EXTERNAL &&
+                  other.config.owner == OR_OWNER_EXTERNAL) ||
+                 (std::strcmp(profile, "single-staged") == 0 &&
+                  config->transfer == OR_TRANSFER_STAGED &&
+                  other.config.transfer == OR_TRANSFER_STAGED)))
+                return status(OR_INCOMPATIBLE);
             auto a = reinterpret_cast<uintptr_t>(data), b = reinterpret_cast<uintptr_t>(other.data);
             if (a < b + bytes && b < a + bytes)
                 return status(OR_INCOMPATIBLE);
