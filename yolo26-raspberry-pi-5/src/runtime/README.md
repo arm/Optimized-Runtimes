@@ -99,3 +99,34 @@ complete instance.
 `y26_native_preprocess_image_no_resize` accepts images whose longer side
 already matches the model resolution. It normalizes pixels, separates color
 channels, and pads the shorter side, but deliberately does not resize.
+
+## OR host interface
+
+The same library additionally exports `or_get_api` and `or_runtime_version`
+for the shared [v10 contract](../../../interfaces/or/README.md). Existing
+`y26_native_*` APIs and Python behavior are unchanged. Model loading validates
+and retains `model.bin` bytes; each OR session creates its own native instance.
+Inputs and raw outputs use runtime-allocated, direct host buffers with 64-byte
+alignment. The adapter implements synchronous execution only. Preprocessing and
+semantic output decoding remain with the consumer.
+
+Build from the repository checkout including `interfaces/or/`. After converting
+a model, run real host conformance with:
+
+```sh
+Y26_OR_MODEL="$PWD/dist/models/yolo26n-640/model.bin" build/runtime/yolo26n_or_conformance
+```
+
+Missing fixture configuration returns 77 for ordinary CTest builds. Qualification
+CI explicitly requires every model file and runs the provider directly, so a
+missing fixture fails the job. The provider compares raw results byte-for-byte
+against the unchanged legacy API in the same library; it is adapter equivalence,
+not an independent accuracy evaluation.
+
+## Static linking
+
+The source CMake target `arm_yolo26n_static` exposes `y26_or_get_api` through
+`y26_or.h`, alongside the original native API. Its transitive CMake dependencies
+supply XNNPACK and pthreadpool. The shared library also retains both generic
+OR bootstrap exports. See the
+[shared linking guide](../../../interfaces/or/README.md#static-and-shared-linking).
