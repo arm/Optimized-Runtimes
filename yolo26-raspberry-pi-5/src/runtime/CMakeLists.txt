@@ -114,28 +114,37 @@ set_source_files_properties(${yolo26n_xnnpack_microkernels}
 # Runtime targets
 #
 # The shared-library export map keeps every C++ and dependency symbol private.
-add_library(arm_yolo26n SHARED
+add_library(arm_yolo26n_objects OBJECT
   fixed_graph.cpp
   fixed_memory_plan.cpp
   fixed_schedule.cpp
   model_store.cpp
   arm_yolo26n.cpp
+  loom_adapter.cpp
   preprocess.cpp
   projection_optimization.cpp)
+add_library(arm_yolo26n SHARED loom_plugin.cpp)
+add_library(arm_yolo26n_static STATIC)
+set_target_properties(arm_yolo26n_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(arm_yolo26n PRIVATE arm_yolo26n_objects)
+target_link_libraries(arm_yolo26n_static PUBLIC arm_yolo26n_objects)
+set_target_properties(arm_yolo26n_static PROPERTIES OUTPUT_NAME arm-yolo26n)
+target_include_directories(arm_yolo26n_static INTERFACE
+  "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../interfaces/loom")
 set_target_properties(arm_yolo26n PROPERTIES
   OUTPUT_NAME "arm-yolo26n"
   VERSION "${PROJECT_VERSION}"
   SOVERSION 0)
-target_compile_features(arm_yolo26n PRIVATE cxx_std_17)
-target_compile_options(arm_yolo26n PRIVATE
+target_compile_features(arm_yolo26n_objects PRIVATE cxx_std_17)
+target_compile_options(arm_yolo26n_objects PRIVATE
   -march=armv8.2-a+fp16
   -mno-fix-cortex-a53-843419 -ffunction-sections -fdata-sections
   -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Werror)
-target_include_directories(arm_yolo26n SYSTEM PRIVATE
+target_include_directories(arm_yolo26n_objects SYSTEM PRIVATE
   "${xnnpack_SOURCE_DIR}"
   "${xnnpack_SOURCE_DIR}/include"
   "${pthreadpool_SOURCE_DIR}/include")
-target_link_libraries(arm_yolo26n PRIVATE XNNPACK pthreadpool m)
+target_link_libraries(arm_yolo26n_objects PUBLIC XNNPACK pthreadpool m)
 target_link_options(arm_yolo26n PRIVATE
   "LINKER:--version-script=${CMAKE_CURRENT_SOURCE_DIR}/native_runtime.map"
   "LINKER:--gc-sections"
@@ -147,9 +156,17 @@ if(YOLO26N_ENABLE_COVERAGE)
   # Debug supplies unoptimized code and symbols; this option adds only the GNU
   # coverage instrumentation. Coverage builds are diagnostic and are never
   # used for performance measurement or release.
-  target_compile_options(arm_yolo26n PRIVATE --coverage)
-  target_link_options(arm_yolo26n PRIVATE --coverage)
+  target_compile_options(arm_yolo26n_objects PRIVATE --coverage)
+  target_link_options(arm_yolo26n_objects INTERFACE --coverage)
 endif()
+
+set(LOOM_INTERFACE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../interfaces/loom")
+target_include_directories(arm_yolo26n PRIVATE "${LOOM_INTERFACE_DIR}")
+target_include_directories(arm_yolo26n_objects PRIVATE "${LOOM_INTERFACE_DIR}")
+target_compile_definitions(arm_yolo26n_objects PRIVATE "LRT_EXPORT=__attribute__((visibility(\"default\")))")
+target_compile_definitions(arm_yolo26n PRIVATE "LRT_EXPORT=__attribute__((visibility(\"default\")))")
+install(FILES "${LOOM_INTERFACE_DIR}/loom_runtime.h" "${LOOM_INTERFACE_DIR}/loom_runtime_vulkan.h"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" COMPONENT development)
 
 # Native verification
 if(BUILD_TESTING)
@@ -184,7 +201,7 @@ install(TARGETS arm_yolo26n
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   COMPONENT runtime
   NAMELINK_COMPONENT development)
-install(FILES arm_yolo26n.h
+install(FILES arm_yolo26n.h y26_lrt.h
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   COMPONENT development)
 install(DIRECTORY licenses/
@@ -193,3 +210,18 @@ install(DIRECTORY licenses/
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/arm-yolo26n"
   COMPONENT runtime)
+
+if(BUILD_TESTING)
+  include("${LOOM_INTERFACE_DIR}/conformance/Conformance.cmake")
+  loom_add_conformance(yolo26n_loom_conformance "${CMAKE_CURRENT_SOURCE_DIR}/tests/loom_provider.cpp" arm_yolo26n)
+  loom_add_conformance(yolo26n_static_conformance "${CMAKE_CURRENT_SOURCE_DIR}/tests/loom_provider.cpp" arm_yolo26n_static)
+  target_compile_definitions(yolo26n_static_conformance PRIVATE LRT_STATIC_PROVIDER)
+  add_test(NAME yolo26n_static_conformance COMMAND yolo26n_static_conformance)
+  set_tests_properties(yolo26n_static_conformance PROPERTIES SKIP_RETURN_CODE 77)
+  add_test(NAME yolo26n_loom_conformance COMMAND yolo26n_loom_conformance)
+  set_tests_properties(yolo26n_loom_conformance PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+if(BUILD_TESTING)
+  target_include_directories(yolo26n_loom_conformance PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+endif()

@@ -48,6 +48,9 @@ foreach(row IN LISTS symbol_rows)
 endforeach()
 list(SORT actual_exports)
 set(expected_exports
+  lrt_get_api
+  lrt_runtime_version
+  y26_lrt_get_api
   y26_native_arena_bytes
   y26_native_calls
   y26_native_class_count
