@@ -29,6 +29,7 @@ interpretation belong to the application unless included in the model package.
 | [Memory guide](runtime-memory-use-cases.md) | Binding choices, output reuse and synchronization |
 | [Declaration checks](tests/) | Standalone C11/C++11 compatibility and include-order checks |
 | [Host conformance suite](conformance/README.md) | Replaceable GTest runtime provider and host-memory contract tests |
+| [Standalone inference and timing](inference/README.md) | C++/Make client for prepared inputs, raw outputs and optimization measurements |
 
 ## Consumer lifecycle
 
