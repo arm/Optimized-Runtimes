@@ -48,6 +48,8 @@ foreach(row IN LISTS symbol_rows)
 endforeach()
 list(SORT actual_exports)
 set(expected_exports
+  or_get_api
+  or_runtime_version
   y26_native_arena_bytes
   y26_native_calls
   y26_native_class_count
@@ -58,7 +60,8 @@ set(expected_exports
   y26_native_input_bytes
   y26_native_output_bytes
   y26_native_preprocess_image_no_resize
-  y26_native_resolution)
+  y26_native_resolution
+  y26_or_get_api)
 if(NOT actual_exports STREQUAL expected_exports)
   message(FATAL_ERROR "Unexpected native runtime exports: ${actual_exports}")
 endif()

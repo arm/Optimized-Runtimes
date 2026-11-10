@@ -3,6 +3,9 @@
  * private. CTest verifies the resulting dynamic symbol table. */
 {
   global:
+    y26_or_get_api;
+    or_get_api;
+    or_runtime_version;
     y26_native_create;
     y26_native_preprocess_image_no_resize;
     y26_native_execute;

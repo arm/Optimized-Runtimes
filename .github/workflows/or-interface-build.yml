@@ -1,0 +1,25 @@
+name: Shared OR interface
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+    steps:
+      - name: Install build prerequisites
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends build-essential cmake make python3 python3-venv ca-certificates libvulkan-dev
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Shared declarations and mock conformance
+        run: |
+          cmake -S interfaces/or -B interfaces/or/build
+          cmake --build interfaces/or/build --parallel 4
+          ctest --test-dir interfaces/or/build --output-on-failure --no-tests=error
